@@ -1,0 +1,36 @@
+*.iml
+.gradle
+.idea
+.DS_Store
+build
+captures
+.cxx
+*.keystore
+*.jks
+keystore.properties
+local.properties
+auth.properties
+
+# FolkPatch specific signing files
+app/folkpatch-release*.jks
+keystore.properties
+.vscode
+.kotlin
+app/src/main/resources/
+private
+.claude/
+.opencode
+.qoder
+
+# Built native binaries
+app/src/main/assets/Service/
+fpd/target/
+fpd/.cargo/
+
+# demo project
+.research
+KernelPatch
+
+# Python
+__pycache__/
+*.pyc
