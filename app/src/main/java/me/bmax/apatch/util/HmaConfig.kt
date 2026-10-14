@@ -37,7 +37,7 @@ object HmaConfig {
     class Template(val raw: JSONObject, val name: String) {
         var isWhitelist: Boolean
             get() = raw.optBoolean("isWhitelist", false)
-            set(value) = raw.put("isWhitelist", value)
+            set(value) { raw.put("isWhitelist", value) }
 
         val appList: MutableSet<String>
             get() = raw.optJSONArray("appList")?.let { arr ->
@@ -55,11 +55,11 @@ object HmaConfig {
     class AppConfig(val raw: JSONObject) {
         var useWhitelist: Boolean
             get() = raw.optBoolean("useWhitelist", false)
-            set(value) = raw.put("useWhitelist", value)
+            set(value) { raw.put("useWhitelist", value) }
 
         var excludeSystemApps: Boolean
             get() = raw.optBoolean("excludeSystemApps", true)
-            set(value) = raw.put("excludeSystemApps", value)
+            set(value) { raw.put("excludeSystemApps", value) }
 
         val applyTemplates: MutableSet<String>
             get() = jsonStringSet(raw, "applyTemplates")

@@ -33,7 +33,7 @@ object HmaConfigIo {
             override fun onAddElement(s: String?) { s?.let(lines::add) }
         }
         val stderr = object : CallbackList<String?>() {
-            override fun onAddElement(s: String?) { Log.w(TAG, "read: $it") }
+            override fun onAddElement(s: String?) { Log.w(TAG, "read: $s") }
         }
         val result = withNewRootShell {
             newJob().add("cat ${HmaConfig.PATH}").to(stdout, stderr).exec()
