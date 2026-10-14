@@ -111,11 +111,18 @@ object HmaConfigIo {
     }
 
     /**
-     * Writes the config back to [path].
+     * Writes the config back to [path], reporting every step.
      *
-     * The owner is taken from the HMA data dir rather than hardcoded and the
-     * mode is restored to 600, otherwise a root-owned copy would leave HMA
-     * unable to read its own file.
+     * A single `cp` was not enough to diagnose: the shell can read the file
+     * (reading works) yet still fail to write it, and the old code collapsed
+     * all of that into one "failed" message. So the write is now staged, made
+     * world readable in case the root shell cannot enter the app's private dir,
+     * copied, then verified by reading the byte count back. If the copy fails,
+     * a redirect is tried before giving up.
+     *
+     * The owner is restored from the HMA data dir and the mode is put back to
+     * 600, otherwise a root-owned copy would leave HMA unable to read its own
+     * file even though the write itself succeeded.
      */
     fun write(
         context: Context,
@@ -123,23 +130,68 @@ object HmaConfigIo {
         path: String,
         onLine: (String) -> Unit,
     ): Boolean {
-        val staged = File(context.filesDir, "hma_config.json").apply {
-            writeText(config.toJson())
-        }
+        val payload = config.toJson()
+        val expected = payload.toByteArray().size
         val dir = path.substringBeforeLast("/")
-        val lines = runShell(
-            "mkdir -p \"$dir\"",
-            "[ -f \"$path\" ] && cp -f \"$path\" \"$path.bak\" || true",
-            "cp -f ${staged.absolutePath} \"$path\"",
-            "uid=\$(stat -c %u /data/data/\$(ls /data/data | grep -E 'hidemyapplist|hma_oss' | head -1) 2>/dev/null)",
-            "[ -n \"\$uid\" ] && chown \$uid \"$path\" || true",
-            "chmod 600 \"$path\"",
-            "ls -l \"$path\"",
-        )
-        lines.forEach(onLine)
-        val ok = lines.any { it.contains(path.substringAfterLast("/")) && it.startsWith("-") }
-        if (!ok) onLine("failed to write $path")
-        else onLine("config.json updated")
+
+        val staged = File(context.filesDir, "hma_config.json").apply {
+            writeText(payload)
+            // The root shell may not be able to enter another app's private
+            // dir, so relax the staged copy rather than relying on that.
+            setReadable(true, false)
+            setWritable(true, false)
+        }
+
+        onLine("target: $path")
+        onLine("payload: $expected bytes")
+        runShell(
+            "id -u; getenforce",
+            "ls -ld \"$dir\"",
+            "ls -l \"$path\" 2>&1",
+            "ls -l ${staged.absolutePath} 2>&1",
+        ).forEach(onLine)
+
+        val readable = runShell("[ -r ${staged.absolutePath} ] && echo YES || echo NO")
+            .firstOrNull { it.trim() in setOf("YES", "NO") }?.trim() ?: "UNKNOWN"
+        onLine("staged readable by root: $readable")
+
+        // Back up first so a bad write is recoverable.
+        runShell("[ -f \"$path\" ] && cp -f \"$path\" \"$path.bak\" 2>&1 || echo 'no existing file to back up'")
+            .forEach(onLine)
+
+        var copied = false
+        for (method in listOf(
+            "cp -f ${staged.absolutePath} \"$path\" 2>&1",
+            "cat ${staged.absolutePath} > \"$path\" 2>&1",
+        )) {
+            val out = runShell(method)
+            out.forEach(onLine)
+            val size = runShell("[ -f \"$path\" ] && wc -c < \"$path\" || echo -1")
+                .firstOrNull()?.trim()?.toIntOrNull() ?: -1
+            if (size == expected) {
+                copied = true
+                onLine("write verified: $size bytes")
+                break
+            }
+            onLine("method failed (size=$size): $method")
+        }
+
+        if (!copied) {
+            onLine("all write methods failed")
+            return false
+        }
+
+        // Restore ownership and mode so HMA can still read its own file.
+        runShell(
+            "uid=\$(stat -c %u \"$dir\" 2>/dev/null)",
+            "[ -n \"\$uid\" ] && chown \"\$uid\" \"$path\" 2>&1 || echo 'could not resolve uid'",
+            "chmod 600 \"$path\" 2>&1",
+            "ls -l \"$path\" 2>&1",
+        ).forEach(onLine)
+
+        val finalSize = runShell("wc -c < \"$path\" 2>&1").firstOrNull()?.trim()?.toIntOrNull()
+        val ok = finalSize == expected
+        onLine(if (ok) "config.json updated" else "size mismatch after chown: $finalSize")
         return ok
     }
 

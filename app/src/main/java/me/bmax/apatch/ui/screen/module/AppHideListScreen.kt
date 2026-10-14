@@ -146,6 +146,9 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
             withContext(Dispatchers.Main.immediate) {
                 log = lines.joinToString("\n")
                 busy = false
+                if (!ok) {
+                    log = lines.joinToString("\n") + "\n---- env ----\n" + HmaConfigIo.diagnose()
+                }
                 showToast(
                     context,
                     context.getString(if (ok) R.string.hma_saved else R.string.hma_failed)
