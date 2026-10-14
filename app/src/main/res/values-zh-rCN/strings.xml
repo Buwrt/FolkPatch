@@ -1485,4 +1485,14 @@ KernelPatch 需要修补 boot 镜像。
     <string name="app_hide_failed">隐藏列表应用失败</string>
     <string name="app_hide_entry">隐藏列表</string>
 
+    <string name="hide_list_mode_black">黑名单模式</string>
+    <string name="hide_list_mode_white">白名单模式</string>
+    <string name="hide_list_mode_black_desc">只隐藏列表中的应用</string>
+    <string name="hide_list_mode_white_desc">隐藏除列表以外的所有应用</string>
+    <string name="hide_list_exclude_system">排除系统应用</string>
+    <string name="hide_list_exclude_system_desc">白名单模式下系统应用依然可见</string>
+    <string name="hide_list_root_trace">root 痕迹 - 保持可见</string>
+    <string name="hide_list_rescan">重新扫描</string>
+    <string name="hide_list_imported">已导入 %1$d 个目标应用</string>
+
 </resources>

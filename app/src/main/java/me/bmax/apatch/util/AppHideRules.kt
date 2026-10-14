@@ -1,93 +1,114 @@
 package me.bmax.apatch.util
 
+import org.json.JSONObject
+
 /**
- * Rules that decide whether an installed app should be hidden (blacklist) or
- * left visible (whitelist) by the one-tap hide-list scanner.
+ * Hide-list rules modelled on Hide-My-Applist (HMA).
  *
- * Matching is intentionally package-name based: labels are localized, so a
- * keyword hit on the label alone is unreliable across locales.
+ * HMA's model is caller-centric: `scope` is keyed by the app that performs the
+ * PackageManager query (the app being protected), and each entry names the
+ * packages that should be hidden from it. FolkPatch cannot hook PackageManager,
+ * but the same two-mode decision shape applies to what this screen actually
+ * controls: which apps get a spoofed key attestation via Tricky Store.
+ *
+ * Mode semantics, identical to HMA:
+ *   useWhitelist = false (blacklist) -> hide everything IN the list
+ *   useWhitelist = true  (whitelist) -> hide everything NOT in the list
+ *
+ * The critical difference from HMA is what belongs in the list. HMA hides root
+ * traces (Magisk, LSPosed modules) from detectors. Tricky Store hides detectors
+ * from the attestation chain. So this classifier sorts apps into two buckets and
+ * only the DETECTOR bucket is a valid hide-list entry; root tooling must stay
+ * out of target.txt or the file becomes noise.
  */
 object AppHideRules {
 
-    enum class Verdict { HIDE, KEEP }
+    /** Which side of the hide decision an installed app falls on. */
+    enum class Kind {
+        /** Banking, payment, DRM, games, detectors: wants a spoofed attestation. */
+        DETECTOR,
+        /** Root managers, Xposed/LSPosed modules, Shizuku, terminals: never hide. */
+        ROOT_TRACE,
+        /** Plain system component. */
+        SYSTEM,
+        /** Nothing matched. */
+        UNKNOWN,
+    }
 
-    data class Decision(val verdict: Verdict, val reason: String)
+    data class Decision(val kind: Kind, val reason: String)
 
-    /** Packages that must never be hidden, or the manager itself breaks. */
-    private val KEEP_EXACT = setOf(
-        "android",
-        "me.bmax.apatch",
-        "me.yuki.folk",
-        "mi.yuki.folk",
-        "github.ColdAsSunny.Kernel",
-        "com.topjohnwu.magisk",
-        "eu.chainfire.supersu",
-        "com.noshufou.android.su",
-        "moe.shizuku.privileged.api",
-        "rikka.appops",
-        "com.termux",
-        "com.termux.api",
-        "com.termux.boot",
-        "com.android.shell",
-        "com.android.systemui",
-        "com.android.settings",
-        "com.android.providers.settings",
-        "com.google.android.webview",
-        "com.google.android.trichromelibrary",
+    /** Root managers and su implementations. */
+    private val ROOT_MANAGERS = setOf(
+        "com.topjohnwu.magisk", "io.github.vvb2060.magisk",
+        "me.bmax.apatch", "me.yuki.folk", "mi.yuki.folk",
+        "github.ColdAsSunny.Kernel", "com.topjohnwu.magisk.alpha",
+        "eu.chainfire.supersu", "com.noshufou.android.su",
+        "me.weishu.exp", "top.canyie.dreamland.manager",
+        "org.meowcat.edxposed.manager", "de.robv.android.xposed.installer",
+        "org.lsposed.manager", "com.tsng.hidemyapplist",
+        "dev.tsng.hidemyapplist", "io.github.vvb2060.mahoshojo",
+        "moe.shizuku.privileged.api", "moe.shizuku.redirectstorage",
+        "rikka.appops", "com.termux", "com.android.shell",
     )
 
-    /** Substrings that mark a package as root/hacker tooling -> never hide. */
-    private val KEEP_KEYWORDS = listOf(
-        "shizuku", "termux", "magisk", "apatch", "kernelpatch", "kernelsu",
-        "supersu", "superuser", "mmrl", "foxmmm", "ksuwebui", "lsposed",
-        "lspatch", "zygisk", "riru", "xposed", "edxposed", "taichi",
-        "appops", "adb", "busybox", "terminal", "mtmanager", "materialfiles",
-        "rootexplorer", "solid.explorer", "swiftbackup", "titaniumbackup",
-        "oandbackup", "neobackup", "seedvault",
+    /** Substrings marking root / hooking / privacy tooling. */
+    private val ROOT_KEYWORDS = listOf(
+        "magisk", "apatch", "kernelsu", "kernelpatch", "sukisu", "supersu",
+        "superuser", "shizuku", "dhizuku", "termux", "lsposed", "lspatch",
+        "edxposed", "xposed", "dreamland", "taichi", "zygisk", "riru",
+        "hidemyapplist", "hma_oss", "mmrl", "foxmmm", "ksuwebui",
+        "appops", "xprivacylua", "thanox", "busybox", "storage-redirect",
+        "storageisolation", "fakelocation", "mocklocation",
     )
 
-    /** Finance / payment / securities / government: the strongest detectors. */
-    private val HIDE_FINANCE = listOf(
-        "bank", "pay", "wallet", "alipay", "unionpay", "yunshanfu",
-        "icbc", "ccb", "cmbchina", "bankcomm", "boc", "abc", "psbc",
-        "hxb", "cib", "cebbank", "pingan", "cmbc", "spdb", "ebcchina",
-        "stock", "securities", "broker", "trade", "eastmoney", "hexin",
-        "htsc", "tonghuashun", "xueqiu", "futunn", "tigerbrokers",
-        "insurance", "policy", "credit", "loan", "huabei", "jdbank",
-        "duolabao", "lakala", "squareup", "venmo", "zelle", "revolut",
-        "n26", "monzo", "wise", "samsungpay", "applepay", "googlepay",
-        "gpay", "phonepe", "paytm", "stripe", "klarna", "afterpay",
-    )
-
-    /** DRM / streaming with hardware-backed attestation. */
-    private val HIDE_DRM = listOf(
-        "netflix", "disney", "hulu", "hbomax", "hbogo", "primevideo",
-        "amazonvideo", "spotify", "youtube", "hbnow", "peacocktv",
-        ".paramount", "crunchyroll", "vudu", "fubo", "sling", "dazn",
-        "tv.apple", "mlb", "nba", "espn", "dmm", "abema", "unext",
-        "u-next", "hulu", "wowow", "tver", "radiko", "rakuten.tv",
-    )
-
-    /** Games with anti-cheat, plus MDM / corporate containers. */
-    private val HIDE_SENSITIVE = listOf(
-        "game", "games", "genshin", "mihoyo", "hoyoverse", "tencent.tmgp",
-        "pubg", "freefire", "mobilelegends", "arenaofvalor", "lolm",
-        "honorofkings", "fortnite", "roblox", "codm", "callofduty",
-        "garena", "riot", "epicgames", "nintendo", "playstation",
-        "intune", "mdm", "workspaceone", "mobileiron", "airwatch",
-        "samsungknox", "knox", "good.work", "blackberry", "citrix",
-        "gov", "government", "12306", "ctrip", "alipay", "wechat",
-    )
-
-    /**
-     * The four packages a Tricky Store target list is expected to contain
-     * regardless of what else is installed.
-     */
-    val ALWAYS_HIDE_EXACT = setOf(
-        "android",
-        "com.google.android.gms",
+    /** Known detector / checker apps. */
+    private val DETECTOR_EXACT = setOf(
+        "icu.nullptr.applistdetector", "com.tsng.applistdetector",
+        "com.byxiaorun.detector", "com.zhenxi.hunter",
+        "com.reveny.nativecheck", "icu.nullptr.nativetest",
+        "krypton.tbsafetychecker", "com.dexprotector.detector.envchecks",
+        "net.corepass.app", "chunqiu.safe", "chunqiu.safe.detector",
+        "luna.safe.luna", "me.garfieldhan.holmes",
+        "com.android.vending", "com.google.android.gms",
         "com.google.android.gsf",
-        "com.android.vending",
+    )
+
+    /** Substrings marking attestation-sensitive apps. */
+    private val DETECTOR_FINANCE = listOf(
+        "bank", "pay", "wallet", "alipay", "unionpay", "yunshanfu",
+        "icbc", "ccb", "cmbchina", "bankcomm", "psbc", "cebbank",
+        "pingan", "cmbc", "spdb", "stock", "securities", "broker",
+        "eastmoney", "hexin", "htsc", "tonghuashun", "xueqiu",
+        "futunn", "tigerbrokers", "insurance", "huabei", "jdbank",
+        "creditcard", "venmo", "zelle", "revolut", "n26", "monzo",
+        "samsungpay", "gpay", "googlepay", "phonepe", "paytm",
+    )
+
+    private val DETECTOR_DRM = listOf(
+        "netflix", "disney", "hulu", "hbomax", "primevideo", "amazonvideo",
+        "spotify", "youtube", "peacocktv", "crunchyroll", "vudu",
+        "dazn", "abema", "unext", "u-next", "tver", "rakuten.tv",
+    )
+
+    private val DETECTOR_GAME = listOf(
+        "tmgp", "sgame", "pubgm", "pubg", "freefire", "mobilelegends",
+        "arenaofvalor", "honorofkings", "genshin", "mihoyo", "hoyoverse",
+        "fortnite", "roblox", "codm", "callofduty", "garena",
+    )
+
+    private val DETECTOR_MISC = listOf(
+        "detector", "detect", "safetycheck", "safetynet", "integrity",
+        "envcheck", "tamper", "rootcheck", "rootbeer", "tbsafety",
+        "intune", "mdm", "workspaceone", "mobileiron", "airwatch",
+        "knox", "gov", "12306", "ctrip",
+    )
+
+    /** Packages that must never be hidden or the device breaks. */
+    val PROTECTED = setOf(
+        "android", "com.android.systemui", "com.android.settings",
+        "com.android.providers.settings", "com.android.providers.media",
+        "com.google.android.webview", "com.google.android.trichromelibrary",
+        "com.android.shell",
     )
 
     private fun lower(pkg: String) = pkg.lowercase()
@@ -98,36 +119,91 @@ object AppHideRules {
     }
 
     /**
-     * Classifies one package.
-     *
-     * Order matters: keep-rules win over hide-rules so root tooling is never
-     * hidden, then explicit hide categories, then the Tricky Store defaults,
-     * then a conservative fallback (unknown user apps hidden, unknown system
-     * apps kept).
+     * Classifies one package. Root tooling wins over detector rules so a module
+     * whose name happens to contain "pay" is never mistaken for a banking app.
      */
-    fun decide(pkg: String, isSystem: Boolean): Decision {
-        if (pkg in KEEP_EXACT) {
-            return Decision(Verdict.KEEP, "core")
+    fun classify(pkg: String, isSystem: Boolean): Decision {
+        if (pkg in PROTECTED) return Decision(Kind.SYSTEM, "protected")
+        if (pkg in ROOT_MANAGERS) return Decision(Kind.ROOT_TRACE, "root-manager")
+        hits(pkg, ROOT_KEYWORDS)?.let { return Decision(Kind.ROOT_TRACE, "root:$it") }
+        if (pkg in DETECTOR_EXACT) return Decision(Kind.DETECTOR, "detector")
+        hits(pkg, DETECTOR_FINANCE)?.let { return Decision(Kind.DETECTOR, "finance:$it") }
+        hits(pkg, DETECTOR_DRM)?.let { return Decision(Kind.DETECTOR, "drm:$it") }
+        hits(pkg, DETECTOR_GAME)?.let { return Decision(Kind.DETECTOR, "game:$it") }
+        hits(pkg, DETECTOR_MISC)?.let { return Decision(Kind.DETECTOR, "check:$it") }
+        return if (isSystem) Decision(Kind.SYSTEM, "system")
+        else Decision(Kind.UNKNOWN, "user")
+    }
+
+    /**
+     * Applies the HMA decision shape to one package.
+     *
+     * [list] is the resolved base list (templates plus extra app list).
+     * [useWhitelist] selects the mode, [excludeSystemApps] exempts system apps
+     * the same way HMA does, and [protected] holds the packages that may never
+     * be filtered regardless of mode.
+     */
+    fun shouldHide(
+        pkg: String,
+        list: Set<String>,
+        useWhitelist: Boolean,
+        excludeSystemApps: Boolean,
+        isSystem: Boolean,
+        protected: Set<String> = PROTECTED,
+    ): Boolean {
+        if (pkg in protected) return false
+        if (excludeSystemApps && isSystem) return false
+        return if (useWhitelist) pkg !in list else pkg in list
+    }
+
+    /**
+     * Parses an HMA config.json and returns its scope keys, i.e. the apps that
+     * were configured as protected targets. Those are exactly the apps that
+     * need a spoofed attestation, so they are what target.txt should contain.
+     *
+     * Returns null when the file is not an HMA config.
+     */
+    fun importHmaScope(json: String): Set<String>? {
+        return try {
+            val root = JSONObject(json)
+            if (!root.has("scope")) return null
+            val scope = root.getJSONObject("scope")
+            val out = LinkedHashSet<String>()
+            val keys = scope.keys()
+            while (keys.hasNext()) {
+                val pkg = keys.next()
+                if (pkg.isNotBlank()) out.add(pkg)
+            }
+            out
+        } catch (e: Exception) {
+            null
         }
-        hits(pkg, KEEP_KEYWORDS)?.let {
-            return Decision(Verdict.KEEP, "tool:$it")
-        }
-        if (pkg in ALWAYS_HIDE_EXACT) {
-            return Decision(Verdict.HIDE, "attestation")
-        }
-        hits(pkg, HIDE_FINANCE)?.let {
-            return Decision(Verdict.HIDE, "finance:$it")
-        }
-        hits(pkg, HIDE_DRM)?.let {
-            return Decision(Verdict.HIDE, "drm:$it")
-        }
-        hits(pkg, HIDE_SENSITIVE)?.let {
-            return Decision(Verdict.HIDE, "sensitive:$it")
-        }
-        return if (isSystem) {
-            Decision(Verdict.KEEP, "system")
-        } else {
-            Decision(Verdict.HIDE, "user")
+    }
+
+    /**
+     * Reads the union of every template's appList. Used only to report what an
+     * imported config was hiding, since those packages are root traces and must
+     * not be written to target.txt.
+     */
+    fun importHmaTemplatePackages(json: String): Set<String> {
+        return try {
+            val root = JSONObject(json)
+            if (!root.has("templates")) return emptySet()
+            val templates = root.getJSONObject("templates")
+            val out = LinkedHashSet<String>()
+            val names = templates.keys()
+            while (names.hasNext()) {
+                val tpl = templates.getJSONObject(names.next())
+                if (!tpl.has("appList")) continue
+                val arr = tpl.getJSONArray("appList")
+                for (i in 0 until arr.length()) {
+                    val pkg = arr.optString(i, "")
+                    if (pkg.isNotBlank()) out.add(pkg)
+                }
+            }
+            out
+        } catch (e: Exception) {
+            emptySet()
         }
     }
 }

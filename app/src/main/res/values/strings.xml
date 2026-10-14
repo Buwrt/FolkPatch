@@ -1541,4 +1541,14 @@ Here are some possible reasons for authentication failure—please check which o
     <string name="app_hide_failed">Failed to apply the hide list</string>
     <string name="app_hide_entry">Hide list</string>
 
+    <string name="hide_list_mode_black">Blacklist mode</string>
+    <string name="hide_list_mode_white">Whitelist mode</string>
+    <string name="hide_list_mode_black_desc">Hide only the apps in the list</string>
+    <string name="hide_list_mode_white_desc">Hide everything except the apps in the list</string>
+    <string name="hide_list_exclude_system">Exclude system apps</string>
+    <string name="hide_list_exclude_system_desc">Keep system apps visible even in whitelist mode</string>
+    <string name="hide_list_root_trace">root trace - keep visible</string>
+    <string name="hide_list_rescan">Rescan</string>
+    <string name="hide_list_imported">Imported %1$d target apps</string>
+
 </resources>
