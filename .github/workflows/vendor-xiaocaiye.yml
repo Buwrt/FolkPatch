@@ -1,0 +1,104 @@
+name: Vendor XiaoCaiYe assets
+
+# Downloads the XiaoCaiYe module zip and commits its contents into
+# app/src/main/assets/xiaocaiye so the manager can ship the module built in.
+#
+# Verification matters here: `.gitattributes` used to contain `* text eol=lf`,
+# which silently stripped 0x0D bytes out of these binaries on `git add`. The
+# final step re-clones the repo and byte-compares against the upstream zip so a
+# regression fails loudly instead of shipping a broken curl.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/vendor-xiaocaiye.yml'
+
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download and unpack
+        run: |
+          set -x
+          curl -fsSL --retry 5 --retry-delay 2 \
+            "https://github.com/Buwrt/xiao/releases/download/1/XiaoCaiYe.zip" -o /tmp/x.zip
+          rm -rf /tmp/xiao
+          mkdir -p /tmp/xiao
+          unzip -o -q /tmp/x.zip -d /tmp/xiao
+
+          DEST=app/src/main/assets/xiaocaiye
+          rm -rf "$DEST"
+          mkdir -p "$DEST"
+          cp -R /tmp/xiao/. "$DEST"/
+          # Stale runtime artefacts left over from the module author's device.
+          rm -f "$DEST/unlock_run.log" "$DEST/已完成首次配置"
+          rmdir "$DEST/res" "$DEST/src" 2>/dev/null || true
+
+          # aapt does not reliably preserve non-ASCII asset names, so give the
+          # driven scripts ASCII names and rewrite the references to them.
+          if [ -f "$DEST/XiaoCaiYe/更新keybox.sh" ]; then
+            mv "$DEST/XiaoCaiYe/更新keybox.sh" "$DEST/XiaoCaiYe/update_keybox.sh"
+          fi
+          if [ -f "$DEST/XiaoCaiYe/更新包名.sh" ]; then
+            mv "$DEST/XiaoCaiYe/更新包名.sh" "$DEST/XiaoCaiYe/update_packages.sh"
+          fi
+          grep -rl '更新keybox.sh\|更新包名.sh' "$DEST" --include='*.sh' | while read -r f; do
+            sed -i 's/更新keybox\.sh/update_keybox.sh/g; s/更新包名\.sh/update_packages.sh/g' "$f"
+          done
+
+          # Checksums of what we intend to commit.
+          (cd "$DEST" && find . -type f | sort | xargs sha256sum) > /tmp/want.txt
+          find "$DEST" -type f | sort
+
+      - name: Commit assets
+        run: |
+          set -x
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # `*.bat eol=crlf` leaves these modified right after checkout, which
+          # makes a plain pull --rebase refuse to run. Restore only those: a
+          # blanket `git checkout -- .` would overwrite the payload we just
+          # staged with the corrupted blob already in the index.
+          git checkout -- Build-Debug.bat Build-Release.bat gradlew.bat 2>/dev/null || true
+          git pull --rebase --autostash origin main || true
+          # -f: assets/.gitignore ignores *.kpm, but these ship inside the APK.
+          git add -f app/src/main/assets/xiaocaiye
+          git status --short | head -60
+          git commit -m "chore: vendor XiaoCaiYe module assets [skip ci]" || echo "nothing to commit"
+          for i in 1 2 3 4 5; do
+            git pull --rebase --autostash origin main || true
+            git push && break || sleep 10
+          done
+
+      - name: Verify committed blobs are byte-identical
+        run: |
+          set -e
+          rm -rf /tmp/verify
+          git clone --depth 1 https://github.com/Buwrt/FolkPatch.git /tmp/verify
+          cd /tmp/verify/app/src/main/assets/xiaocaiye
+          find . -type f | sort | xargs sha256sum > /tmp/got.txt
+          {
+            echo "=== expected (upstream) vs committed ==="
+            diff /tmp/want.txt /tmp/got.txt && echo "ALL OK" || echo "MISMATCH"
+          } > /tmp/verify.txt 2>&1
+          cat /tmp/verify.txt
+          ! grep -q MISMATCH /tmp/verify.txt
+
+      - name: Publish verdict
+        if: always()
+        run: |
+          cp /tmp/verify.txt VERIFY.txt 2>/dev/null || echo "no verify output" > VERIFY.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f VERIFY.txt
+          git commit -m "chore: payload verification [skip ci]" || echo "no change"
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main || true
+            git push && break || sleep 10
+          done

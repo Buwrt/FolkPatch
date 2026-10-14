@@ -1,0 +1,76 @@
+name: Compare vendored payload with upstream
+
+on:
+  workflow_dispatch:
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch upstream zip
+        run: |
+          curl -fsSL --retry 5 "https://github.com/Buwrt/xiao/releases/download/1/XiaoCaiYe.zip" -o /tmp/x.zip
+          rm -rf /tmp/up
+          mkdir -p /tmp/up
+          unzip -o -q /tmp/x.zip -d /tmp/up
+          echo "=== upstream sizes ==="
+          find /tmp/up -type f -printf '%10s %p\n' | sort -k2
+
+      - name: Compare vendored vs upstream
+        run: |
+          {
+            echo "=== sha256 upstream ==="
+            (cd /tmp/up && find . -type f | sort | xargs sha256sum)
+            echo
+            echo "=== sha256 vendored ==="
+            (cd app/src/main/assets/xiaocaiye && find . -type f | sort | xargs sha256sum)
+            echo
+            echo "=== size diff (upstream vs vendored) ==="
+            for f in $(cd /tmp/up && find . -type f | sort); do
+              u=$(stat -c%s "/tmp/up/$f")
+              v=$(stat -c%s "app/src/main/assets/xiaocaiye/$f" 2>/dev/null || echo MISSING)
+              [ "$u" = "$v" ] && echo "OK   $f $u" || echo "DIFF $f upstream=$u vendored=$v"
+            done
+          } > COMPARE.txt 2>&1
+          cat COMPARE.txt
+
+      - name: ELF check on upstream curl
+        run: |
+          {
+            echo "=== upstream curl readelf -h ==="
+            readelf -h /tmp/up/arm64-v8a/bin/curl 2>&1 | head -20
+            echo "=== upstream curl readelf -d ==="
+            readelf -d /tmp/up/arm64-v8a/bin/curl 2>&1 | head -40
+            echo "=== vendored curl readelf -d ==="
+            readelf -d app/src/main/assets/xiaocaiye/arm64-v8a/bin/curl 2>&1 | head -40
+            echo "=== upstream curl NEEDED ==="
+            readelf -d /tmp/up/arm64-v8a/bin/curl 2>/dev/null | grep NEEDED || echo none
+            echo "=== upstream curl file ==="
+            file /tmp/up/arm64-v8a/bin/curl
+            echo "=== upstream curl size ==="
+            stat -c%s /tmp/up/arm64-v8a/bin/curl
+          } >> COMPARE.txt 2>&1
+          tail -60 COMPARE.txt
+
+      - name: Server reachability
+        run: |
+          {
+            echo "=== dcdn.xiaocaiye.cn ==="
+            curl -sS -o /dev/null -w "http=%{http_code}\n" -m 20 https://dcdn.xiaocaiye.cn/keybox/keybox_md5.txt || echo "curl failed"
+            curl -sS -m 20 https://dcdn.xiaocaiye.cn/keybox/keybox_md5.txt 2>&1 | head -5
+          } >> COMPARE.txt 2>&1 || true
+          tail -8 COMPARE.txt
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f COMPARE.txt
+          git commit -m "chore: payload comparison [skip ci]" || echo "no change"
+          git pull --rebase origin main || true
+          git push || echo "push failed"

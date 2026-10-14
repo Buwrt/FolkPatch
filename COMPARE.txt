@@ -1,0 +1,148 @@
+=== sha256 upstream ===
+ef731f964d218691312554ef57d2cb730947d0a4cc81bd71a63237252555fb3a  ./Nohello.kpm
+a8c040011fb4c83cbaeccbfd21bf4ca2f198558249eae62b3d9a2bb43187d3af  ./XiaoCaiYe/APatch.sh
+09f1768bec6a346a5ae3b8b99ae91544d5ad3c86044f275e37d5ee31f704ae79  ./XiaoCaiYe/更新keybox.sh
+83b7f219f0d516e6b97a3c51abadb8c41e68e4c2969db09659e0fa51a3af0f0c  ./XiaoCaiYe/更新包名.sh
+e1046bd64d8484929607c352808ea42ee68a4b34b5821f1cbb6fbb9e8e91db2b  ./action.sh
+6cec52b82e75df34ed25bdcbc58be79e247ea379685e0ac696522d41a8094c38  ./arm64-v8a/bin/curl
+79a07cffebf39e8649ca41e0008aea39942baf3f063092a5fb19f60bb81f0fc6  ./arm64-v8a/bin/inotifywait
+50645ee0e0d2a7d64fb4a1286446df7a4445f3d11aefd49eeeb88515b314c363  ./arm64-v8a/bin/keycheck
+ae31ecb3c6e9ff3154cb7a55f017090448f88482f0e94ac927c0c67a1f33b9cf  ./arm64-v8a/etc/ssl/cert.pem
+f6045e326b439e8ee31d4efd020ddf660d616c67d03e0e8e7a927eb14cbb5d1f  ./arm64-v8a/etc/ssl/openssl.cnf
+e09c2f45cf4cf8ae574f94b6c2650d99ead0d332d5396f6613f062a2d2d73540  ./arm64-v8a/lib/libc++_shared.so
+c331b952015b4a460230988a972627c925a18614ab9df278ec9614ec82bc8432  ./arm64-v8a/lib/libcrypto.so.3
+97dc89ecb5175993adbe2acf7a144b296617fd88ba90a8d4f20e2b759545ab17  ./arm64-v8a/lib/libcurl.so
+9057b890b4e64b2fc1c99b83dad3f6adccff25b12dacd2b4e7f7efedd6ccb15f  ./arm64-v8a/lib/libinotifytools.so
+f1edb8b4dc162804ba5c79665036dce4e4313ecf325ebeca375c654a5b9be77d  ./arm64-v8a/lib/libnghttp2.so
+faeb213eae8ef1fd582ff13701d3f52b3c92cbc125458cf908951613e028e371  ./arm64-v8a/lib/libssl.so.3
+6920643dd38bacfd38f1117a5a9d2b5bb017aebd55ce0c5ed758f2bc5049e5e2  ./cron/root
+5589cc6b694ff606fdda506e820fbf4a7c8de1d19164f19418d44a516f18d9ad  ./isKeyguardLocked.dex
+4d010a672798918816a011d76016db1263da4e82d1b44b0569de617a56fd9e7a  ./module.prop
+f22a025dd5297d897b135c2da8b9522f7811d0300eb38dbc5303fe4c352f646a  ./selinux_hook.kpm
+edde3450b17ca126292d723d749ba621b20642048c9c40c3dd3e17a4caf1274d  ./service.sh
+b7552e9838ab9fea025cac07e304b02c46d1f700f4d86e9328123dcc222eb3f1  ./unlock_run.log
+ab7c576739d987d48435e9f7ae3c74f6162a25648df502b3daa1c051de1350d7  ./unlock_run.sh
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./已完成首次配置
+
+=== sha256 vendored ===
+e9ad1fb7160964263a25ee73672b1c7c4d29280ff20430c268b9f7b36efb48a7  ./Nohello.kpm
+a8c040011fb4c83cbaeccbfd21bf4ca2f198558249eae62b3d9a2bb43187d3af  ./XiaoCaiYe/APatch.sh
+09f1768bec6a346a5ae3b8b99ae91544d5ad3c86044f275e37d5ee31f704ae79  ./XiaoCaiYe/update_keybox.sh
+83b7f219f0d516e6b97a3c51abadb8c41e68e4c2969db09659e0fa51a3af0f0c  ./XiaoCaiYe/update_packages.sh
+711ef271a3b111758cba9021374fe050e862ae8086cb5680201af38332fcefd5  ./action.sh
+0f432771f2206cd008355819c25cef0fa4a16e30b7333267085d9ad7d57bb178  ./arm64-v8a/bin/curl
+79a07cffebf39e8649ca41e0008aea39942baf3f063092a5fb19f60bb81f0fc6  ./arm64-v8a/bin/inotifywait
+50645ee0e0d2a7d64fb4a1286446df7a4445f3d11aefd49eeeb88515b314c363  ./arm64-v8a/bin/keycheck
+ae31ecb3c6e9ff3154cb7a55f017090448f88482f0e94ac927c0c67a1f33b9cf  ./arm64-v8a/etc/ssl/cert.pem
+f6045e326b439e8ee31d4efd020ddf660d616c67d03e0e8e7a927eb14cbb5d1f  ./arm64-v8a/etc/ssl/openssl.cnf
+e09c2f45cf4cf8ae574f94b6c2650d99ead0d332d5396f6613f062a2d2d73540  ./arm64-v8a/lib/libc++_shared.so
+bec82f44cf3c3e7be42bb4bdc57370c4c6dbd2f89cb68c70f196c557fd491706  ./arm64-v8a/lib/libcrypto.so.3
+97dc89ecb5175993adbe2acf7a144b296617fd88ba90a8d4f20e2b759545ab17  ./arm64-v8a/lib/libcurl.so
+9057b890b4e64b2fc1c99b83dad3f6adccff25b12dacd2b4e7f7efedd6ccb15f  ./arm64-v8a/lib/libinotifytools.so
+f1edb8b4dc162804ba5c79665036dce4e4313ecf325ebeca375c654a5b9be77d  ./arm64-v8a/lib/libnghttp2.so
+e41a101b68a45ee7bdd9f5f7125e9281260ebef6f67a75392b0c5ca76d2d866c  ./arm64-v8a/lib/libssl.so.3
+6920643dd38bacfd38f1117a5a9d2b5bb017aebd55ce0c5ed758f2bc5049e5e2  ./cron/root
+5589cc6b694ff606fdda506e820fbf4a7c8de1d19164f19418d44a516f18d9ad  ./isKeyguardLocked.dex
+271ce6b0ea60ac6ae3202ae8a113a02ff518151df3015c8a7974333c6798373e  ./module.prop
+f22a025dd5297d897b135c2da8b9522f7811d0300eb38dbc5303fe4c352f646a  ./selinux_hook.kpm
+ba8d573934d3dca57d64930ef78f2f7b6499d6368a75c13da6d60441e1dfe8d7  ./service.sh
+ab7c576739d987d48435e9f7ae3c74f6162a25648df502b3daa1c051de1350d7  ./unlock_run.sh
+
+=== size diff (upstream vs vendored) ===
+DIFF ./Nohello.kpm upstream=1467488 vendored=1467432
+OK   ./XiaoCaiYe/APatch.sh 1940
+DIFF ./XiaoCaiYe/更新keybox.sh upstream=1979 vendored=MISSING
+DIFF ./XiaoCaiYe/更新包名.sh upstream=1452 vendored=MISSING
+DIFF ./action.sh upstream=4655 vendored=4661
+DIFF ./arm64-v8a/bin/curl upstream=275440 vendored=275437
+OK   ./arm64-v8a/bin/inotifywait 24464
+OK   ./arm64-v8a/bin/keycheck 7360
+OK   ./arm64-v8a/etc/ssl/cert.pem 208065
+OK   ./arm64-v8a/etc/ssl/openssl.cnf 12324
+OK   ./arm64-v8a/lib/libc++_shared.so 1374336
+DIFF ./arm64-v8a/lib/libcrypto.so.3 upstream=4440456 vendored=4440387
+OK   ./arm64-v8a/lib/libcurl.so 730872
+OK   ./arm64-v8a/lib/libinotifytools.so 33456
+OK   ./arm64-v8a/lib/libnghttp2.so 164096
+DIFF ./arm64-v8a/lib/libssl.so.3 upstream=818880 vendored=818877
+OK   ./cron/root 69
+OK   ./isKeyguardLocked.dex 1212
+DIFF ./module.prop upstream=294 vendored=289
+OK   ./selinux_hook.kpm 94368
+DIFF ./service.sh upstream=2760 vendored=2763
+DIFF ./unlock_run.log upstream=3200 vendored=MISSING
+OK   ./unlock_run.sh 522
+DIFF ./已完成首次配置 upstream=0 vendored=MISSING
+=== upstream curl readelf -h ===
+ELF Header:
+  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00 
+  Class:                             ELF64
+  Data:                              2's complement, little endian
+  Version:                           1 (current)
+  OS/ABI:                            UNIX - System V
+  ABI Version:                       0
+  Type:                              DYN (Shared object file)
+  Machine:                           AArch64
+  Version:                           0x1
+  Entry point address:               0x288fc
+  Start of program headers:          64 (bytes into file)
+  Start of section headers:          273712 (bytes into file)
+  Flags:                             0x0
+  Size of this header:               64 (bytes)
+  Size of program headers:           56 (bytes)
+  Number of program headers:         11
+  Size of section headers:           64 (bytes)
+  Number of section headers:         27
+  Section header string table index: 26
+=== upstream curl readelf -d ===
+
+Dynamic section at offset 0x42248 contains 26 entries:
+  Tag        Type                         Name/Value
+ 0x0000000000000001 (NEEDED)             Shared library: [libcurl.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libz.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so]
+ 0x000000000000001e (FLAGS)              BIND_NOW
+ 0x000000006ffffffb (FLAGS_1)            Flags: NOW
+ 0x0000000000000015 (DEBUG)              0x0
+ 0x0000000000000007 (RELA)               0x1bf0
+ 0x0000000000000008 (RELASZ)             30672 (bytes)
+ 0x0000000000000009 (RELAENT)            24 (bytes)
+ 0x000000006ffffff9 (RELACOUNT)          1277
+ 0x0000000000000017 (JMPREL)             0x93c0
+ 0x0000000000000002 (PLTRELSZ)           3240 (bytes)
+ 0x0000000000000003 (PLTGOT)             0x44620
+ 0x0000000000000014 (PLTREL)             RELA
+ 0x0000000000000006 (SYMTAB)             0x358
+ 0x000000000000000b (SYMENT)             24 (bytes)
+ 0x0000000000000005 (STRTAB)             0x15d4
+ 0x000000000000000a (STRSZ)              1563 (bytes)
+ 0x000000000000001c (FINI_ARRAYSZ)       16 (bytes)
+ 0x0000000000000004 (HASH)               0x1184
+ 0x0000000000000020 (PREINIT_ARRAY)      0x40210
+ 0x0000000000000021 (PREINIT_ARRAYSZ)    16 (bytes)
+ 0x0000000000000019 (INIT_ARRAY)         0x40220
+ 0x000000000000001b (INIT_ARRAYSZ)       16 (bytes)
+ 0x000000000000001a (FINI_ARRAY)         0x40230
+ 0x0000000000000000 (NULL)               0x1030
+=== vendored curl readelf -d ===
+readelf: Error: Reading 1728 bytes extends past end of file for section headers
+
+Dynamic section at offset 0x42248 contains 6 entries:
+  Tag        Type                         Name/Value
+ 0x0006080000000000 (<unknown>: 6080000000000)     0x10000000000
+ 0x0006130000000000 (<unknown>: 6130000000000)     0x10000000000
+ 0x0005fb0000000000 (<unknown>: 5fb0000000000)     0x1e0000000000
+ 0x0000080000000000 (<unknown>: 80000000000)   0xfffffb0000000000
+ 0x000001000000006f (<unknown>: 1000000006f)   0x150000000000
+ 0x0000000000000000 (NULL)               0x70000000000
+=== upstream curl NEEDED ===
+ 0x0000000000000001 (NEEDED)             Shared library: [libcurl.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libz.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so]
+=== upstream curl file ===
+/tmp/up/arm64-v8a/bin/curl: ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, interpreter /system/bin/linker64, stripped
+=== upstream curl size ===
+275440
+=== dcdn.xiaocaiye.cn ===
+http=200
+d4d80d20e7e0b53bb62d9e562f835338

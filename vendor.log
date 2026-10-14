@@ -1,0 +1,22 @@
+=== git status ===
+ M Build-Debug.bat
+ M Build-Release.bat
+ M gradlew.bat
+ M vendor.log
+=== ls assets ===
+total 1576
+drwxr-xr-x 5 runner runner    4096 Oct 13 16:30 .
+drwxr-xr-x 9 runner runner    4096 Oct 13 16:30 ..
+-rw-r--r-- 1 runner runner 1467488 Oct 13 16:30 Nohello.kpm
+drwxr-xr-x 2 runner runner    4096 Oct 13 16:30 XiaoCaiYe
+-rw-r--r-- 1 runner runner    4661 Oct 13 16:30 action.sh
+drwxr-xr-x 5 runner runner    4096 Oct 13 16:30 arm64-v8a
+drwxr-xr-x 2 runner runner    4096 Oct 13 16:30 cron
+-rw-r--r-- 1 runner runner    1212 Oct 13 16:30 isKeyguardLocked.dex
+-rw-r--r-- 1 runner runner     294 Oct 13 16:30 module.prop
+-rw-r--r-- 1 runner runner   94368 Oct 13 16:30 selinux_hook.kpm
+-rw-r--r-- 1 runner runner    2763 Oct 13 16:30 service.sh
+-rw-r--r-- 1 runner runner     522 Oct 13 16:30 unlock_run.sh
+=== git log ===
+5fa931b chore: vendor XiaoCaiYe module assets [skip ci]
+3ed57f9 ci: rename XiaoCaiYe driven scripts to ASCII asset names
