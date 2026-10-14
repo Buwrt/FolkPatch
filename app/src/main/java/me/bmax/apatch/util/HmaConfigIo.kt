@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.util.Log
 import com.topjohnwu.superuser.CallbackList
 import java.io.File
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Reads and writes Hide-My-Applist's config.json through a root shell.
@@ -36,17 +37,26 @@ object HmaConfigIo {
         add("/data/misc/hide_my_applist/config.json")
     }
 
+    /**
+     * Runs commands and returns their combined output.
+     *
+     * The shell writes stdout from its own thread while the caller is already
+     * iterating the result, so the buffer must be concurrent and the value
+     * handed back must be a snapshot. Returning the live list let the shell
+     * thread mutate it mid-iteration and crashed the caller with
+     * ConcurrentModificationException.
+     */
     private fun runShell(vararg commands: String): List<String> {
-        val out = ArrayList<String>()
+        val out = CopyOnWriteArrayList<String>()
         val sink = object : CallbackList<String?>() {
             override fun onAddElement(s: String?) { s?.let(out::add) }
         }
         return try {
             withNewRootShell { newJob().add(*commands).to(sink, sink).exec() }
-            out
+            ArrayList(out)
         } catch (e: Exception) {
             Log.e(TAG, "shell failed", e)
-            out + listOf("shell error: ${e.message}")
+            ArrayList(out) + listOf("shell error: ${e.message}")
         }
     }
 
