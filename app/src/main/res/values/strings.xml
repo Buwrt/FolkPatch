@@ -1511,4 +1511,34 @@ Here are some possible reasons for authentication failure—please check which o
 
     <string name="xiaocaiye_diagnose">Diagnose</string>
 
+    <!-- App hide black/white list -->
+    <string name="hide_list_title">App Hide List</string>
+    <string name="hide_list_summary">One tap scans every installed app and sorts it into a hide list (blacklist) or a keep list (whitelist). Tap any app to move it to the other list.</string>
+    <string name="hide_list_hint">Tap Scan to detect the apps on this device.</string>
+    <string name="hide_list_scan">Scan</string>
+    <string name="hide_list_scanning">Scanning...</string>
+    <string name="hide_list_apply">Apply</string>
+    <string name="hide_list_applying">Applying...</string>
+    <string name="hide_list_black">Hide (%1$d)</string>
+    <string name="hide_list_white">Keep (%1$d)</string>
+    <string name="hide_list_search">Search app name or package</string>
+    <string name="hide_list_empty">No app matches</string>
+    <string name="hide_list_move_to_white">Keep</string>
+    <string name="hide_list_move_to_black">Hide</string>
+    <string name="hide_list_manual">Manual</string>
+    <string name="hide_list_done">Done</string>
+    <string name="hide_list_failed">Failed - check the log below</string>
+    <string name="app_hide_title">App Hide List</string>
+    <string name="app_hide_summary">Tap scan to classify every installed app. Apps that need to stay hidden (banking, payment, DRM, games) go to the blacklist; root tooling and core system apps stay on the whitelist. Tap any entry to move it to the other side.</string>
+    <string name="app_hide_scan">One-tap scan</string>
+    <string name="app_hide_rescan">Rescan</string>
+    <string name="app_hide_black">Hidden (%1$d)</string>
+    <string name="app_hide_white">Visible (%1$d)</string>
+    <string name="app_hide_search">Search app name or package</string>
+    <string name="app_hide_apply">Apply - hide %1$d apps</string>
+    <string name="app_hide_manual">edited</string>
+    <string name="app_hide_applied">Hide list applied</string>
+    <string name="app_hide_failed">Failed to apply the hide list</string>
+    <string name="app_hide_entry">Hide list</string>
+
 </resources>

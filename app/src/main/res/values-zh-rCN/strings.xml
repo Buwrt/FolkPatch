@@ -1455,4 +1455,34 @@ KernelPatch 需要修补 boot 镜像。
 
     <string name="xiaocaiye_diagnose">诊断</string>
 
+    <!-- 应用隐藏黑白名单 -->
+    <string name="hide_list_title">应用隐藏名单</string>
+    <string name="hide_list_summary">一键扫描本机全部应用，自动分成黑名单（隐藏）和白名单（不隐藏）。点击任意应用可移到另一边。</string>
+    <string name="hide_list_hint">点击「一键扫描」开始检测本机应用。</string>
+    <string name="hide_list_scan">一键扫描</string>
+    <string name="hide_list_scanning">扫描中...</string>
+    <string name="hide_list_apply">应用配置</string>
+    <string name="hide_list_applying">写入中...</string>
+    <string name="hide_list_black">黑名单 (%1$d)</string>
+    <string name="hide_list_white">白名单 (%1$d)</string>
+    <string name="hide_list_search">搜索应用名或包名</string>
+    <string name="hide_list_empty">没有匹配的应用</string>
+    <string name="hide_list_move_to_white">不隐藏</string>
+    <string name="hide_list_move_to_black">隐藏</string>
+    <string name="hide_list_manual">手动</string>
+    <string name="hide_list_done">已生效</string>
+    <string name="hide_list_failed">失败，请查看下方日志</string>
+    <string name="app_hide_title">应用隐藏列表</string>
+    <string name="app_hide_summary">点击扫描即可自动分类全部已安装应用：银行、支付、政务、DRM 流媒体、游戏等进入黑名单（隐藏），root 工具与系统核心组件进入白名单（不隐藏）。点击任意条目可将其移到另一侧。</string>
+    <string name="app_hide_scan">一键扫描</string>
+    <string name="app_hide_rescan">重新扫描</string>
+    <string name="app_hide_black">隐藏 (%1$d)</string>
+    <string name="app_hide_white">不隐藏 (%1$d)</string>
+    <string name="app_hide_search">搜索应用名或包名</string>
+    <string name="app_hide_apply">应用 - 隐藏 %1$d 个应用</string>
+    <string name="app_hide_manual">已手动调整</string>
+    <string name="app_hide_applied">隐藏列表已生效</string>
+    <string name="app_hide_failed">隐藏列表应用失败</string>
+    <string name="app_hide_entry">隐藏列表</string>
+
 </resources>
