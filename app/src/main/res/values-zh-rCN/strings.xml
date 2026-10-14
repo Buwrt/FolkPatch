@@ -1509,4 +1509,5 @@ KernelPatch 需要修补 boot 镜像。
     <string name="hma_saved">已保存到 Hide-My-Applist</string>
     <string name="hma_failed">写入 HMA 配置失败</string>
 
+    <string name="hma_source">配置来源：%1$s</string>
 </resources>

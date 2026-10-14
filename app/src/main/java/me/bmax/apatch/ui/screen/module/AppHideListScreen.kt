@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Save
@@ -70,6 +72,7 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
     var targets by remember { mutableStateOf<Set<String>>(emptySet()) }
     var traces by remember { mutableStateOf<Set<String>>(emptySet()) }
     var loaded by remember { mutableStateOf(false) }
+    var sourcePath by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var log by remember { mutableStateOf("") }
     var query by remember { mutableStateOf("") }
@@ -84,8 +87,11 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
             val installed = HmaConfigIo.installedApps(context)
             withContext(Dispatchers.Main.immediate) {
                 if (parsed == null) {
-                    log = context.getString(R.string.hma_missing)
+                    // No config at any known path: dump the environment so the
+                    // user can see which HMA is installed and where it looks.
+                    log = context.getString(R.string.hma_missing) + "\n" + HmaConfigIo.diagnose()
                 } else {
+                    sourcePath = parsed.sourcePath
                     config = parsed
                     apps = installed
                     targets = parsed.scope.keys.toSet()
@@ -104,10 +110,11 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
         scope.launch(Dispatchers.IO) {
             val base = HmaConfigIo.read() ?: HmaConfig.Config(
                 org.json.JSONObject().apply { put("configVersion", 93) }
-            )
+            ).apply { sourcePath = HmaConfigIo.resolveWritePath() }
             val installed = HmaConfigIo.installedApps(context)
             val pair = HmaConfigIo.applyOneTap(context, base, BLACKLIST_TEMPLATE, true)
             withContext(Dispatchers.Main.immediate) {
+                sourcePath = base.sourcePath
                 config = base
                 apps = installed
                 targets = base.scope.keys.toSet()
@@ -135,8 +142,9 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
             cfg.scope.keys.toList().forEach { pkg ->
                 if (pkg !in targets) cfg.removeScope(pkg)
             }
+            val target = cfg.sourcePath.ifBlank { HmaConfigIo.resolveWritePath() }
             val lines = ArrayList<String>()
-            val ok = HmaConfigIo.write(context, cfg) { line -> lines.add(line) }
+            val ok = HmaConfigIo.write(context, cfg, target) { line -> lines.add(line) }
             withContext(Dispatchers.Main.immediate) {
                 log = lines.joinToString("\n")
                 busy = false
@@ -226,12 +234,26 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
                 )
             }
 
+            if (loaded && sourcePath.isNotBlank()) {
+                Text(
+                    text = stringResource(R.string.hma_source, sourcePath),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            }
+
             if (log.isNotEmpty()) {
                 Text(
                     text = log,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 8.dp),
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState())
+                        .padding(vertical = 8.dp),
                 )
             }
         }

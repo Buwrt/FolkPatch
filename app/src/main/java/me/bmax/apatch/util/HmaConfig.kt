@@ -85,6 +85,12 @@ object HmaConfig {
 
     /** The whole file: untouched root object plus the two maps we work on. */
     class Config(val raw: JSONObject) {
+        /**
+         * Where this config was read from, or where a new one should be
+         * written. HMA keeps its file in different places depending on the
+         * build, so the path is carried with the config instead of assumed.
+         */
+        var sourcePath: String = HmaConfig.PATH
         val templates = LinkedHashMap<String, Template>()
         val scope = LinkedHashMap<String, AppConfig>()
 

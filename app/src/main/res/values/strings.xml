@@ -1565,4 +1565,5 @@ Here are some possible reasons for authentication failure—please check which o
     <string name="hma_saved">Saved to Hide-My-Applist</string>
     <string name="hma_failed">Failed to write HMA config</string>
 
+    <string name="hma_source">Source: %1$s</string>
 </resources>

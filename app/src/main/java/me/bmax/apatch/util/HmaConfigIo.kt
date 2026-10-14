@@ -10,75 +10,137 @@ import java.io.File
 /**
  * Reads and writes Hide-My-Applist's config.json through a root shell.
  *
- * /data/data is mode 700, so the file can only be reached as root. Reads go
- * through `cat`; writes land in the app's private dir first and are then copied
- * into place, with the owner and mode restored so HMA can still read its own
- * file afterwards.
+ * A single hardcoded path is not enough. The original HMA keeps the file in its
+ * own data dir, the OSS fork keeps a runtime copy under /data/misc, and on
+ * Android 11+ the data dir is also reachable through /data_mirror. So every
+ * candidate is probed before giving up, and whichever path worked is remembered
+ * on the config so writes go back to the same file.
  */
 object HmaConfigIo {
 
     private const val TAG = "HmaConfigIo"
 
-    /** Attempts to detect whether HMA is installed. */
-    fun isHmaInstalled(): Boolean {
-        return withNewRootShell {
-            newJob().add("[ -d /data/data/${HmaConfig.PKG} ] && echo yes").exec().isSuccess
+    const val DEFAULT_PATH = "/data/data/com.tsng.hidemyapplist/files/config.json"
+
+    /** HMA package names seen across the original, debug and OSS builds. */
+    private val PACKAGES = listOf(
+        "com.tsng.hidemyapplist",
+        "org.frknkrc44.hma_oss",
+    )
+
+    fun candidatePaths(): List<String> = buildList {
+        PACKAGES.forEach { pkg ->
+            add("/data/data/$pkg/files/config.json")
+            add("/data_mirror/data_ce/null/0/$pkg/files/config.json")
         }
+        add("/data/misc/hide_my_applist/config.json")
     }
 
-    /** Reads the config file. Returns null when it is missing or unreadable. */
-    fun read(): HmaConfig.Config? {
-        val lines = ArrayList<String>()
-        val stdout = object : CallbackList<String?>() {
-            override fun onAddElement(s: String?) { s?.let(lines::add) }
+    private fun runShell(vararg commands: String): List<String> {
+        val out = ArrayList<String>()
+        val sink = object : CallbackList<String?>() {
+            override fun onAddElement(s: String?) { s?.let(out::add) }
         }
-        val stderr = object : CallbackList<String?>() {
-            override fun onAddElement(s: String?) { Log.w(TAG, "read: $s") }
+        return try {
+            withNewRootShell { newJob().add(*commands).to(sink, sink).exec() }
+            out
+        } catch (e: Exception) {
+            Log.e(TAG, "shell failed", e)
+            out + listOf("shell error: ${e.message}")
         }
-        val result = withNewRootShell {
-            newJob().add("cat ${HmaConfig.PATH}").to(stdout, stderr).exec()
-        }
-        if (!result.isSuccess || lines.isEmpty()) return null
-        return HmaConfig.parse(lines.joinToString("\n"))
     }
 
     /**
-     * Writes the config back.
+     * Full environment report, shown when no config can be found.
      *
-     * The owner is taken from the HMA data dir rather than hardcoded, and the
-     * mode is restored to 600, otherwise a root-owned copy would leave HMA
-     * unable to read its own config.
+     * Without this the screen can only say "not found", which does not tell the
+     * user whether HMA is missing, has a different package name, has not saved
+     * a config yet, or is simply not readable from this root shell.
      */
-    fun write(context: Context, config: HmaConfig.Config, onLine: (String) -> Unit): Boolean {
+    fun diagnose(): String {
+        val paths = candidatePaths().joinToString(" ")
+        return runShell(
+            "echo '== identity =='; id -u; id -un; getenforce",
+            "echo '== candidate paths =='",
+            "for p in $paths /data/misc/hide_my_applist*/config.json; do " +
+                "if [ -f \"\$p\" ]; then echo \"FOUND \$p \$(stat -c '%s bytes uid=%u mode=%a' \"\$p\")\"; " +
+                "else echo \"MISSING \$p\"; fi; done",
+            "echo '== installed hma data dirs =='",
+            "ls -d /data/data/*hidemyapplist* /data/data/*hma_oss* 2>/dev/null || echo none",
+            "echo '== /data/misc dirs =='",
+            "ls -d /data/misc/hide_my_applist* 2>/dev/null || echo none",
+            "echo '== hma files dir =='",
+            "ls -l /data/data/com.tsng.hidemyapplist/files/ 2>/dev/null || echo none",
+            "echo '== misc listing =='",
+            "ls -lR /data/misc/hide_my_applist* 2>/dev/null | head -25 || echo none",
+        ).joinToString("\n")
+    }
+
+    /** Picks the path a brand new config should be written to. */
+    fun resolveWritePath(): String {
+        val pkgs = PACKAGES.joinToString(" ")
+        val found = runShell(
+            "for d in $pkgs; do if [ -d \"/data/data/\$d\" ]; then echo \"\$d\"; fi; done"
+        ).map { it.trim() }.firstOrNull { it.isNotBlank() }
+        return if (found != null) "/data/data/$found/files/config.json" else DEFAULT_PATH
+    }
+
+    /**
+     * Reads the config from the first candidate that holds a parseable file.
+     *
+     * Candidates include /data/misc paths expanded by the shell, since those
+     * contain a generated name that cannot be known ahead of time.
+     */
+    fun read(): HmaConfig.Config? {
+        val paths = candidatePaths().toMutableList()
+        paths += runShell("ls /data/misc/hide_my_applist*/config.json 2>/dev/null || true")
+            .map { it.trim() }
+            .filter { it.endsWith("config.json") }
+
+        for (path in paths.distinct()) {
+            val lines = runShell("cat \"$path\" 2>&1")
+            if (lines.isEmpty()) continue
+            val text = lines.joinToString("\n")
+            if (!text.trimStart().startsWith("{")) continue
+            val config = HmaConfig.parse(text) ?: continue
+            config.sourcePath = path
+            Log.i(TAG, "read config from $path")
+            return config
+        }
+        return null
+    }
+
+    /**
+     * Writes the config back to [path].
+     *
+     * The owner is taken from the HMA data dir rather than hardcoded and the
+     * mode is restored to 600, otherwise a root-owned copy would leave HMA
+     * unable to read its own file.
+     */
+    fun write(
+        context: Context,
+        config: HmaConfig.Config,
+        path: String,
+        onLine: (String) -> Unit,
+    ): Boolean {
         val staged = File(context.filesDir, "hma_config.json").apply {
             writeText(config.toJson())
         }
-
-        val lines = ArrayList<String>()
-        val stdout = object : CallbackList<String?>() {
-            override fun onAddElement(s: String?) { s?.let(lines::add) }
-        }
-        val stderr = object : CallbackList<String?>() {
-            override fun onAddElement(s: String?) { s?.let { lines.add(it) } }
-        }
-
-        val result = withNewRootShell {
-            newJob().add(
-                "[ -f ${HmaConfig.PATH} ] && cp -f ${HmaConfig.PATH} ${HmaConfig.PATH}.bak || true",
-                "cp -f ${staged.absolutePath} ${HmaConfig.PATH}",
-                "uid=\$(stat -c %u /data/data/${HmaConfig.PKG})",
-                "chown \$uid ${HmaConfig.PATH}",
-                "chmod 600 ${HmaConfig.PATH}",
-                "ls -l ${HmaConfig.PATH}",
-            ).to(stdout, stderr).exec()
-        }
+        val dir = path.substringBeforeLast("/")
+        val lines = runShell(
+            "mkdir -p \"$dir\"",
+            "[ -f \"$path\" ] && cp -f \"$path\" \"$path.bak\" || true",
+            "cp -f ${staged.absolutePath} \"$path\"",
+            "uid=\$(stat -c %u /data/data/\$(ls /data/data | grep -E 'hidemyapplist|hma_oss' | head -1) 2>/dev/null)",
+            "[ -n \"\$uid\" ] && chown \$uid \"$path\" || true",
+            "chmod 600 \"$path\"",
+            "ls -l \"$path\"",
+        )
         lines.forEach(onLine)
-        if (!result.isSuccess) {
-            onLine("failed to write ${HmaConfig.PATH}")
-            return false
-        }
-        onLine("config.json updated")
-        return true
+        val ok = lines.any { it.contains(path.substringAfterLast("/")) && it.startsWith("-") }
+        if (!ok) onLine("failed to write $path")
+        else onLine("config.json updated")
+        return ok
     }
 
     /** Installed packages with their labels and system flag. */
@@ -150,9 +212,9 @@ object HmaConfigIo {
         blacklist.setAppList(traces)
 
         targets.forEach { pkg ->
-            val cfg = config.scopeConfig(pkg)
-            cfg.useWhitelist = false
-            cfg.setApplyTemplates(listOf(blacklistTemplateName))
+            val appConfig = config.scopeConfig(pkg)
+            appConfig.useWhitelist = false
+            appConfig.setApplyTemplates(listOf(blacklistTemplateName))
         }
 
         return targets.size to traces.size
