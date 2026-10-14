@@ -29,6 +29,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -327,6 +330,23 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
                         .verticalScroll(rememberScrollState())
                         .padding(vertical = 8.dp),
                 )
+                OutlinedButton(
+                    onClick = {
+                        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE)
+                            as? ClipboardManager
+                        cm?.setPrimaryClip(ClipData.newPlainText("hma log", log))
+                        showToast(context, context.getString(R.string.hma_log_copied))
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                ) {
+                    Icon(Icons.Filled.ContentCopy, contentDescription = null)
+                    Text(
+                        text = stringResource(R.string.hma_copy_log),
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
             }
         }
     }

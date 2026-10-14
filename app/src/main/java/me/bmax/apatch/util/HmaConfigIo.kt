@@ -121,18 +121,17 @@ object HmaConfigIo {
     }
 
     /**
-     * Writes the config back to [path], reporting every step.
+     * Writes the config back to [path], trying three independent methods.
      *
-     * A single `cp` was not enough to diagnose: the shell can read the file
-     * (reading works) yet still fail to write it, and the old code collapsed
-     * all of that into one "failed" message. So the write is now staged, made
-     * world readable in case the root shell cannot enter the app's private dir,
-     * copied, then verified by reading the byte count back. If the copy fails,
-     * a redirect is tried before giving up.
+     * Reading works but writing did not, which points at the staging step: the
+     * config is written into this app's private dir first, and if the root
+     * shell cannot read that dir (SELinux rather than DAC) both copy methods
+     * fail for the same reason. So the third method stops touching the file
+     * system entirely and streams the payload through the shell as base64
+     * chunks, which only needs permission to create the target.
      *
-     * The owner is restored from the HMA data dir and the mode is put back to
-     * 600, otherwise a root-owned copy would leave HMA unable to read its own
-     * file even though the write itself succeeded.
+     * Every method is verified by byte count before it is accepted, and each
+     * step is reported so a failure can be read rather than guessed at.
      */
     fun write(
         context: Context,
@@ -141,67 +140,90 @@ object HmaConfigIo {
         onLine: (String) -> Unit,
     ): Boolean {
         val payload = config.toJson()
-        val expected = payload.toByteArray().size
+        val expected = payload.toByteArray(Charsets.UTF_8).size
         val dir = path.substringBeforeLast("/")
-
-        val staged = File(context.filesDir, "hma_config.json").apply {
-            writeText(payload)
-            // The root shell may not be able to enter another app's private
-            // dir, so relax the staged copy rather than relying on that.
-            setReadable(true, false)
-            setWritable(true, false)
-        }
 
         onLine("target: $path")
         onLine("payload: $expected bytes")
+        onLine("--- before ---")
         runShell(
-            "id -u; getenforce",
-            "ls -ld \"$dir\"",
+            "id -u",
+            "getenforce 2>&1",
+            "ls -ld \"$dir\" 2>&1",
             "ls -l \"$path\" 2>&1",
-            "ls -l ${staged.absolutePath} 2>&1",
+            "stat -c '%s bytes uid=%u gid=%g mode=%a ctx=%C' \"$path\" 2>&1",
         ).forEach(onLine)
 
-        val readable = runShell("[ -r ${staged.absolutePath} ] && echo YES || echo NO")
-            .firstOrNull { it.trim() in setOf("YES", "NO") }?.trim() ?: "UNKNOWN"
-        onLine("staged readable by root: $readable")
-
-        // Back up first so a bad write is recoverable.
         runShell("[ -f \"$path\" ] && cp -f \"$path\" \"$path.bak\" 2>&1 || echo 'no existing file to back up'")
             .forEach(onLine)
 
-        var copied = false
-        for (method in listOf(
-            "cp -f ${staged.absolutePath} \"$path\" 2>&1",
-            "cat ${staged.absolutePath} > \"$path\" 2>&1",
-        )) {
-            val out = runShell(method)
-            out.forEach(onLine)
-            val size = runShell("[ -f \"$path\" ] && wc -c < \"$path\" || echo -1")
-                .firstOrNull()?.trim()?.toIntOrNull() ?: -1
-            if (size == expected) {
-                copied = true
-                onLine("write verified: $size bytes")
-                break
-            }
-            onLine("method failed (size=$size): $method")
+        val methods = mutableListOf<Pair<String, () -> List<String>>>()
+
+        // Method 1: copy from the app's private dir.
+        val staged = File(context.filesDir, "hma_config.json")
+        methods += "copy from ${staged.absolutePath}" to {
+            staged.writeText(payload, Charsets.UTF_8)
+            staged.setReadable(true, false)
+            staged.setWritable(true, false)
+            runShell(
+                "ls -l ${staged.absolutePath} 2>&1",
+                "cp -f ${staged.absolutePath} \"$path\" 2>&1",
+            )
         }
 
-        if (!copied) {
-            onLine("all write methods failed")
+        // Method 2: redirect the same file into the target.
+        methods += "redirect from ${staged.absolutePath}" to {
+            runShell("cat ${staged.absolutePath} > \"$path\" 2>&1")
+        }
+
+        // Method 3: stream base64 through the shell, no source file needed.
+        methods += "base64 stream" to {
+            val b64 = android.util.Base64.encodeToString(
+                payload.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP
+            )
+            val out = ArrayList<String>()
+            out += runShell("rm -f \"$path\" 2>&1")
+            b64.chunked(4096).forEach { chunk ->
+                out += runShell("printf '%s' '$chunk' | base64 -d >> \"$path\" 2>&1")
+            }
+            out
+        }
+
+        var written = false
+        for ((name, attempt) in methods) {
+            onLine("--- method: $name ---")
+            runCatching { attempt().forEach(onLine) }
+                .onFailure { onLine("threw: ${it.message}") }
+
+            val size = runShell("stat -c %s \"$path\" 2>&1")
+                .firstOrNull()?.trim()?.toIntOrNull() ?: -1
+            if (size == expected) {
+                written = true
+                onLine("OK: $size bytes matches payload")
+                break
+            }
+            onLine("FAILED: got $size bytes, wanted $expected")
+        }
+
+        if (!written) {
+            onLine("all three write methods failed")
             return false
         }
 
         // Restore ownership and mode so HMA can still read its own file.
+        onLine("--- fix ownership ---")
         runShell(
             "uid=\$(stat -c %u \"$dir\" 2>/dev/null)",
-            "[ -n \"\$uid\" ] && chown \"\$uid\" \"$path\" 2>&1 || echo 'could not resolve uid'",
+            "echo uid=\$uid",
+            "chown \$uid \"$path\" 2>&1",
             "chmod 600 \"$path\" 2>&1",
-            "ls -l \"$path\" 2>&1",
+            "stat -c '%s bytes uid=%u mode=%a ctx=%C' \"$path\" 2>&1",
         ).forEach(onLine)
 
-        val finalSize = runShell("wc -c < \"$path\" 2>&1").firstOrNull()?.trim()?.toIntOrNull()
+        val finalSize = runShell("stat -c %s \"$path\" 2>&1")
+            .firstOrNull()?.trim()?.toIntOrNull()
         val ok = finalSize == expected
-        onLine(if (ok) "config.json updated" else "size mismatch after chown: $finalSize")
+        onLine(if (ok) "config.json updated" else "size changed after chown: $finalSize")
         return ok
     }
 
