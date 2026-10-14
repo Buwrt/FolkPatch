@@ -2,7 +2,7 @@ name: Build HideList (artifact only)
 
 on:
   push:
-    branches: [ feat/app-hide-list ]
+    branches: [ feat-app-hide-list ]
   workflow_dispatch:
 
 permissions:
