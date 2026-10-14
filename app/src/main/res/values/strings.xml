@@ -1551,4 +1551,18 @@ Here are some possible reasons for authentication failure—please check which o
     <string name="hide_list_rescan">Rescan</string>
     <string name="hide_list_imported">Imported %1$d target apps</string>
 
+    <string name="hma_title">HMA Hide List</string>
+    <string name="hma_summary">Edits Hide-My-Applist directly. Protected apps are the ones HMA shields; hidden apps are the root traces HMA keeps from them.</string>
+    <string name="hma_scan">One-tap scan</string>
+    <string name="hma_load">Load</string>
+    <string name="hma_save">Save to HMA</string>
+    <string name="hma_search">Search app name or package</string>
+    <string name="hma_tab_targets">Protected (%1$d)</string>
+    <string name="hma_tab_traces">Hidden (%1$d)</string>
+    <string name="hma_stats">%1$d protected apps, %2$d hidden apps</string>
+    <string name="hma_scanned">Scanned: %1$d protected, %2$d hidden</string>
+    <string name="hma_missing">Could not read HMA config.json. Is Hide-My-Applist installed and enabled?</string>
+    <string name="hma_saved">Saved to Hide-My-Applist</string>
+    <string name="hma_failed">Failed to write HMA config</string>
+
 </resources>

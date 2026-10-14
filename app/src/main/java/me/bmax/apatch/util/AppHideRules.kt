@@ -103,10 +103,19 @@ object AppHideRules {
         "knox", "gov", "12306", "ctrip",
     )
 
-    /** Packages that must never be hidden or the device breaks. */
+    /**
+     * Mirrors HMA's Constants.packagesShouldNotHide. HMAService.shouldHide
+     * returns false for these on both the caller and the query side, so they can
+     * never be filtered whatever the mode is.
+     */
     val PROTECTED = setOf(
-        "android", "com.android.systemui", "com.android.settings",
-        "com.android.providers.settings", "com.android.providers.media",
+        "android", "android.media", "android.uid.system", "android.uid.shell",
+        "android.uid.systemui", "com.android.permissioncontroller",
+        "com.android.providers.downloads", "com.android.providers.downloads.ui",
+        "com.android.providers.media", "com.android.providers.media.module",
+        "com.android.providers.settings", "com.google.android.providers.media.module",
+        "com.google.android.permissioncontroller", "com.miui.securitycenter",
+        "com.android.systemui", "com.android.settings",
         "com.google.android.webview", "com.google.android.trichromelibrary",
         "com.android.shell",
     )
@@ -133,77 +142,5 @@ object AppHideRules {
         hits(pkg, DETECTOR_MISC)?.let { return Decision(Kind.DETECTOR, "check:$it") }
         return if (isSystem) Decision(Kind.SYSTEM, "system")
         else Decision(Kind.UNKNOWN, "user")
-    }
-
-    /**
-     * Applies the HMA decision shape to one package.
-     *
-     * [list] is the resolved base list (templates plus extra app list).
-     * [useWhitelist] selects the mode, [excludeSystemApps] exempts system apps
-     * the same way HMA does, and [protected] holds the packages that may never
-     * be filtered regardless of mode.
-     */
-    fun shouldHide(
-        pkg: String,
-        list: Set<String>,
-        useWhitelist: Boolean,
-        excludeSystemApps: Boolean,
-        isSystem: Boolean,
-        protected: Set<String> = PROTECTED,
-    ): Boolean {
-        if (pkg in protected) return false
-        if (excludeSystemApps && isSystem) return false
-        return if (useWhitelist) pkg !in list else pkg in list
-    }
-
-    /**
-     * Parses an HMA config.json and returns its scope keys, i.e. the apps that
-     * were configured as protected targets. Those are exactly the apps that
-     * need a spoofed attestation, so they are what target.txt should contain.
-     *
-     * Returns null when the file is not an HMA config.
-     */
-    fun importHmaScope(json: String): Set<String>? {
-        return try {
-            val root = JSONObject(json)
-            if (!root.has("scope")) return null
-            val scope = root.getJSONObject("scope")
-            val out = LinkedHashSet<String>()
-            val keys = scope.keys()
-            while (keys.hasNext()) {
-                val pkg = keys.next()
-                if (pkg.isNotBlank()) out.add(pkg)
-            }
-            out
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    /**
-     * Reads the union of every template's appList. Used only to report what an
-     * imported config was hiding, since those packages are root traces and must
-     * not be written to target.txt.
-     */
-    fun importHmaTemplatePackages(json: String): Set<String> {
-        return try {
-            val root = JSONObject(json)
-            if (!root.has("templates")) return emptySet()
-            val templates = root.getJSONObject("templates")
-            val out = LinkedHashSet<String>()
-            val names = templates.keys()
-            while (names.hasNext()) {
-                val tpl = templates.getJSONObject(names.next())
-                if (!tpl.has("appList")) continue
-                val arr = tpl.getJSONArray("appList")
-                for (i in 0 until arr.length()) {
-                    val pkg = arr.optString(i, "")
-                    if (pkg.isNotBlank()) out.add(pkg)
-                }
-            }
-            out
-        } catch (e: Exception) {
-            emptySet()
-        }
     }
 }

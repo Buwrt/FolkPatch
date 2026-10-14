@@ -1,8 +1,5 @@
 package me.bmax.apatch.ui.screen.module
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,33 +10,29 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.dropUnlessResumed
 import com.ramcosta.composedestinations.annotation.Destination
@@ -50,16 +43,21 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.bmax.apatch.R
 import me.bmax.apatch.ui.component.folk.FolkScaffold
-import me.bmax.apatch.util.AppHideManager
+import me.bmax.apatch.util.AppHideRules
+import me.bmax.apatch.util.HmaConfig
+import me.bmax.apatch.util.HmaConfigIo
 import me.bmax.apatch.util.ui.showToast
 
+private const val BLACKLIST_TEMPLATE = "黑名单"
+
 /**
- * One-tap app hide list, using Hide-My-Applist's decision model.
+ * Edits Hide-My-Applist's config.json in place.
  *
- * Scan classifies every installed app into detectors (banking, payment, DRM,
- * games, checkers) and root traces (Magisk, LSPosed, Shizuku). Detectors form
- * the hide list; root traces stay visible because Tricky Store cannot hide an
- * app from a PackageManager query.
+ * HMA is caller-centric, so this screen has two sides that must not be mixed
+ * up. "Protected apps" are the scope keys: the apps doing the asking, such as a
+ * banking app or a game, and they are what HMA shields. "Hidden apps" are the
+ * blacklist template contents: the root traces HMA keeps out of that app's
+ * sight. One tap sorts every installed package into the right side.
  */
 @Composable
 @Destination<RootGraph>
@@ -67,110 +65,93 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    val entries = remember { mutableStateListOf<AppHideManager.Entry>() }
-    var scanned by remember { mutableStateOf(false) }
+    var apps by remember { mutableStateOf<List<HmaConfigIo.Installed>>(emptyList()) }
+    var config: HmaConfig.Config? by remember { mutableStateOf(null) }
+    var targets by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var traces by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var loaded by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var log by remember { mutableStateOf("") }
     var query by remember { mutableStateOf("") }
     var tabIndex by remember { mutableIntStateOf(0) }
 
-    // HMA-style work mode. Blacklist is the default, same as HMA.
-    var useWhitelist by remember { mutableStateOf(false) }
-    var excludeSystemApps by remember { mutableStateOf(true) }
-
-    val importLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        busy = true
-        log = ""
-        scope.launch(Dispatchers.IO) {
-            val targets = AppHideManager.importHma(context, uri) { line ->
-                scope.launch(Dispatchers.Main.immediate) {
-                    log = if (log.isEmpty()) line else "$log\n$line"
-                }
-            }
-            withContext(Dispatchers.Main.immediate) {
-                if (targets != null) {
-                    // Blacklist mode: exactly the imported targets are hidden.
-                    useWhitelist = false
-                    val targetSet = targets.toSet()
-                    if (scanned) {
-                        entries.forEachIndexed { i, e ->
-                            entries[i] = e.copy(hiddenOverride = targetSet.contains(e.pkg))
-                        }
-                    }
-                    showToast(context, context.getString(R.string.hide_list_imported, targets.size))
-                }
-                busy = false
-            }
-        }
-    }
-
-    fun runScan() {
+    fun load() {
         if (busy) return
         busy = true
         log = ""
         scope.launch(Dispatchers.IO) {
-            val result = AppHideManager.scan(context)
+            val parsed = HmaConfigIo.read()
+            val installed = HmaConfigIo.installedApps(context)
             withContext(Dispatchers.Main.immediate) {
-                entries.clear()
-                entries.addAll(result)
-                scanned = true
+                if (parsed == null) {
+                    log = context.getString(R.string.hma_missing)
+                } else {
+                    config = parsed
+                    apps = installed
+                    targets = parsed.scope.keys.toSet()
+                    traces = parsed.template(BLACKLIST_TEMPLATE)?.appList?.toSet() ?: emptySet()
+                    loaded = true
+                }
                 busy = false
             }
         }
     }
 
-    fun applyNow() {
-        if (busy || !scanned) return
+    fun oneTap() {
+        if (busy) return
         busy = true
         log = ""
-        // Blacklist: the hidden set is the list. Whitelist: the list is the
-        // visible set, so everything else becomes hidden.
-        val hidden = if (useWhitelist) {
-            entries.filter { !it.hidden }.map { it.pkg }.toSet()
-        } else {
-            entries.filter { it.hidden }.map { it.pkg }.toSet()
-        }
         scope.launch(Dispatchers.IO) {
-            val ok = AppHideManager.apply(context, hidden) { line ->
-                scope.launch(Dispatchers.Main.immediate) {
-                    log = if (log.isEmpty()) line else "$log\n$line"
-                }
-            }
+            val base = HmaConfigIo.read() ?: HmaConfig.Config(
+                org.json.JSONObject().apply { put("configVersion", 93) }
+            )
+            val installed = HmaConfigIo.installedApps(context)
+            val pair = HmaConfigIo.applyOneTap(context, base, BLACKLIST_TEMPLATE, true)
             withContext(Dispatchers.Main.immediate) {
+                config = base
+                apps = installed
+                targets = base.scope.keys.toSet()
+                traces = base.template(BLACKLIST_TEMPLATE)?.appList?.toSet() ?: emptySet()
+                loaded = true
+                log = context.getString(R.string.hma_scanned, pair.first, pair.second)
+                busy = false
+            }
+        }
+    }
+
+    fun save() {
+        val cfg = config ?: return
+        if (busy) return
+        busy = true
+        log = ""
+        scope.launch(Dispatchers.IO) {
+            val blacklist = cfg.ensureTemplate(BLACKLIST_TEMPLATE, isWhitelist = false)
+            blacklist.setAppList(traces)
+            targets.forEach { pkg ->
+                val appConfig = cfg.scopeConfig(pkg)
+                appConfig.useWhitelist = false
+                appConfig.setApplyTemplates(listOf(BLACKLIST_TEMPLATE))
+            }
+            cfg.scope.keys.toList().forEach { pkg ->
+                if (pkg !in targets) cfg.removeScope(pkg)
+            }
+            val lines = ArrayList<String>()
+            val ok = HmaConfigIo.write(context, cfg) { line -> lines.add(line) }
+            withContext(Dispatchers.Main.immediate) {
+                log = lines.joinToString("\n")
                 busy = false
                 showToast(
                     context,
-                    context.getString(
-                        if (ok) R.string.hide_list_done else R.string.hide_list_failed
-                    )
+                    context.getString(if (ok) R.string.hma_saved else R.string.hma_failed)
                 )
             }
         }
     }
 
-    fun toggle(entry: AppHideManager.Entry) {
-        val i = entries.indexOfFirst { it.pkg == entry.pkg }
-        if (i < 0) return
-        entries[i] = entry.copy(hiddenOverride = !entry.hidden)
-    }
-
-    val hideCount = entries.count { it.hidden }
-    val keepCount = entries.size - hideCount
-
     FolkScaffold(
-        title = stringResource(R.string.hide_list_title),
+        title = stringResource(R.string.hma_title),
         onBack = dropUnlessResumed { navigator.popBackStack() },
         snackbarHostState = null,
-        actions = {
-            if (scanned) {
-                OutlinedButton(onClick = ::runScan, enabled = !busy) {
-                    Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.hide_list_rescan))
-                }
-            }
-        },
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -179,17 +160,18 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
                 .padding(horizontal = 16.dp),
         ) {
             Text(
-                text = stringResource(R.string.hide_list_summary),
+                text = stringResource(R.string.hma_summary),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(vertical = 12.dp),
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Button(onClick = ::runScan, enabled = !busy, modifier = Modifier.weight(1f)) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = ::oneTap,
+                    enabled = !busy,
+                    modifier = Modifier.weight(1f),
+                ) {
                     if (busy) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
@@ -200,130 +182,48 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
                         Icon(Icons.Filled.Search, contentDescription = null)
                     }
                     Text(
-                        text = stringResource(R.string.hide_list_scan),
+                        text = stringResource(R.string.hma_scan),
                         modifier = Modifier.padding(start = 8.dp),
                     )
                 }
-                OutlinedButton(
-                    onClick = { importLauncher.launch(arrayOf("application/json", "text/*")) },
-                    enabled = !busy,
-                    modifier = Modifier.padding(start = 8.dp),
-                ) {
-                    Icon(Icons.Filled.FileDownload, contentDescription = null)
-                }
-            }
-
-            // Work mode, mirroring HMA's blacklist / whitelist toggle.
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(
-                            if (useWhitelist) R.string.hide_list_mode_white
-                            else R.string.hide_list_mode_black
-                        ),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = stringResource(
-                            if (useWhitelist) R.string.hide_list_mode_white_desc
-                            else R.string.hide_list_mode_black_desc
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(checked = useWhitelist, onCheckedChange = { useWhitelist = it })
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.hide_list_exclude_system),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = stringResource(R.string.hide_list_exclude_system_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(checked = excludeSystemApps, onCheckedChange = { excludeSystemApps = it })
-            }
-
-            if (scanned && !busy) {
-                TabRow(selectedTabIndex = tabIndex, modifier = Modifier.padding(top = 12.dp)) {
-                    Tab(
-                        selected = tabIndex == 0,
-                        onClick = { tabIndex = 0 },
-                        text = { Text(stringResource(R.string.hide_list_black, hideCount)) },
-                    )
-                    Tab(
-                        selected = tabIndex == 1,
-                        onClick = { tabIndex = 1 },
-                        text = { Text(stringResource(R.string.hide_list_white, keepCount)) },
-                    )
-                }
-
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    singleLine = true,
-                    placeholder = { Text(stringResource(R.string.hide_list_search)) },
-                )
-
-                val wanted = tabIndex == 0
-                val visible = entries.filter {
-                    it.hidden == wanted && (
-                        query.isBlank() ||
-                            it.label.contains(query, ignoreCase = true) ||
-                            it.pkg.contains(query, ignoreCase = true)
-                        )
-                }
-
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(bottom = 12.dp),
-                ) {
-                    items(visible, key = { it.pkg }) { entry ->
-                        HideRow(
-                            entry = entry,
-                            onToggle = { toggle(entry) },
-                        )
+                if (!loaded) {
+                    Button(
+                        onClick = ::load,
+                        enabled = !busy,
+                        modifier = Modifier.padding(start = 8.dp),
+                    ) {
+                        Text(stringResource(R.string.hma_load))
                     }
-                }
-
-                Button(
-                    onClick = ::applyNow,
-                    enabled = !busy,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp),
-                ) {
-                    Icon(Icons.Filled.Check, contentDescription = null)
-                    Text(
-                        text = stringResource(R.string.hide_list_apply, hideCount),
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
                 }
             }
 
             if (busy) {
-                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                Column(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.padding(top = 32.dp))
                 }
+            } else if (loaded) {
+                HmaBody(
+                    apps = apps,
+                    targets = targets,
+                    traces = traces,
+                    query = query,
+                    tabIndex = tabIndex,
+                    onQueryChange = { query = it },
+                    onTabChange = { tabIndex = it },
+                    onTargetToggle = { pkg ->
+                        targets = if (pkg in targets) targets - pkg else targets + pkg
+                    },
+                    onTraceToggle = { pkg ->
+                        traces = if (pkg in traces) traces - pkg else traces + pkg
+                    },
+                    onSave = ::save,
+                    saving = busy,
+                    targetCount = targets.size,
+                    traceCount = traces.size,
+                )
             }
 
             if (log.isNotEmpty()) {
@@ -331,9 +231,105 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
                     text = log,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 12.dp),
+                    modifier = Modifier.padding(vertical = 8.dp),
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun HmaBody(
+    apps: List<HmaConfigIo.Installed>,
+    targets: Set<String>,
+    traces: Set<String>,
+    query: String,
+    tabIndex: Int,
+    onQueryChange: (String) -> Unit,
+    onTabChange: (Int) -> Unit,
+    onTargetToggle: (String) -> Unit,
+    onTraceToggle: (String) -> Unit,
+    onSave: () -> Unit,
+    saving: Boolean,
+    targetCount: Int,
+    traceCount: Int,
+) {
+    val wantedTargets = tabIndex == 0
+    val accent = if (wantedTargets) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.error
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = tabIndex, modifier = Modifier.padding(top = 12.dp)) {
+            Tab(
+                selected = wantedTargets,
+                onClick = { onTabChange(0) },
+                text = { Text(stringResource(R.string.hma_tab_targets, targetCount)) },
+            )
+            Tab(
+                selected = !wantedTargets,
+                onClick = { onTabChange(1) },
+                text = { Text(stringResource(R.string.hma_tab_traces, traceCount)) },
+            )
+        }
+
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            singleLine = true,
+            placeholder = { Text(stringResource(R.string.hma_search)) },
+        )
+
+        val selected = if (wantedTargets) targets else traces
+        val visible = apps.filter {
+            (query.isBlank() || it.label.contains(query, ignoreCase = true) ||
+                it.pkg.contains(query, ignoreCase = true)) &&
+                (query.isNotBlank() || it.pkg in selected ||
+                    AppHideRules.classify(it.pkg, it.isSystem).kind ==
+                    if (wantedTargets) AppHideRules.Kind.DETECTOR else AppHideRules.Kind.ROOT_TRACE)
+        }
+
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(bottom = 12.dp),
+        ) {
+            items(visible, key = { it.pkg }) { app ->
+                val kind = AppHideRules.classify(app.pkg, app.isSystem)
+                HmaAppRow(
+                    label = app.label,
+                    pkg = app.pkg,
+                    reason = kind.reason,
+                    icon = if (wantedTargets) {
+                        Icons.Filled.Security
+                    } else {
+                        Icons.Filled.VisibilityOff
+                    },
+                    accent = accent,
+                    checked = app.pkg in selected,
+                    onCheckedChange = {
+                        if (wantedTargets) onTargetToggle(app.pkg) else onTraceToggle(app.pkg)
+                    },
+                )
+            }
+        }
+
+        Button(
+            onClick = onSave,
+            enabled = !saving,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+        ) {
+            Icon(Icons.Filled.Save, contentDescription = null)
+            Text(
+                text = stringResource(R.string.hma_save),
+                modifier = Modifier.padding(start = 8.dp),
+            )
         }
     }
 }
