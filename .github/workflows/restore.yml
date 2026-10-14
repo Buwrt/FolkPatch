@@ -1,0 +1,55 @@
+name: restore-src
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download release asset
+        run: |
+          set -e
+          mkdir -p /tmp/dl
+          curl -sSL --retry 3 \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/octet-stream" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/assets/639449544" \
+            -o /tmp/dl/FolkPatch.zip
+          ls -l /tmp/dl/
+          file /tmp/dl/FolkPatch.zip
+          sha256sum /tmp/dl/FolkPatch.zip
+      - name: Inventory zip contents
+        run: |
+          unzip -l /tmp/dl/FolkPatch.zip > /tmp/dl/INVENTORY.txt 2>&1 || true
+          echo "=== entries: $(wc -l < /tmp/dl/INVENTORY.txt) ==="
+          head -120 /tmp/dl/INVENTORY.txt
+      - name: Extract
+        run: |
+          mkdir -p /tmp/dl/src
+          unzip -qq /tmp/dl/FolkPatch.zip -d /tmp/dl/src || true
+          du -sh /tmp/dl/src
+          find /tmp/dl/src -maxdepth 2 | head -60
+      - name: Find apk files
+        run: |
+          find /tmp/dl/src -iname "*.apk" -exec ls -lh {} \; > /tmp/dl/APKS.txt 2>&1 || true
+          cat /tmp/dl/APKS.txt
+      - name: Commit to restore-src branch
+        run: |
+          set -e
+          cd "$GITHUB_WORKSPACE"
+          git config user.email "restore-bot@users.noreply.github.com"
+          git config user.name "restore-bot"
+          git checkout -B restore-src
+          mkdir -p restored
+          cp -r /tmp/dl/src/* restored/ 2>/dev/null || true
+          cp /tmp/dl/INVENTORY.txt INVENTORY.txt
+          cp /tmp/dl/APKS.txt APKS.txt
+          rm -rf restored/*.zip
+          git add -A -- restored INVENTORY.txt APKS.txt
+          git status --short | head -20
+          git commit -m "restore: source from release asset FolkPatch_.zip" || echo "nothing to commit"
+          git push -f origin restore-src
