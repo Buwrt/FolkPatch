@@ -1,0 +1,35 @@
+name: dbg2
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-build-env
+      - name: Build and capture
+        run: |
+          set +e
+          ./gradlew assembleDebug --no-daemon > /tmp/g.log 2>&1
+          echo "exit=$?" >> /tmp/g.log
+          set -e
+      - name: Extract
+        run: |
+          mkdir -p ci-log
+          {
+            echo "=== ERRORS ===";
+            grep -nE "^e: |error:|FAILED|What went wrong" /tmp/g.log | head -60;
+            echo; echo "=== TAIL ==="; tail -60 /tmp/g.log;
+          } > ci-log/e.txt 2>&1 || true
+          wc -l ci-log/e.txt
+      - name: Publish
+        run: |
+          set -e
+          git config user.email "b@u.noreply.github.com"
+          git config user.name "b"
+          git checkout -B dbg-log
+          git add -f ci-log/e.txt
+          git commit -m "ci: log" || echo nothing
+          git push -f origin dbg-log
