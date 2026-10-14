@@ -28,6 +28,7 @@ import androidx.lifecycle.compose.dropUnlessResumed
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
+import com.ramcosta.composedestinations.generated.destinations.AppHideListScreenDestination
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -105,6 +106,12 @@ fun XiaocaiyeScreen(navigator: DestinationsNavigator) {
         onBack = dropUnlessResumed { navigator.popBackStack() },
         snackbarHostState = null,
         actions = {
+            androidx.compose.material3.TextButton(
+                onClick = dropUnlessResumed { navigator.navigate(AppHideListScreenDestination) },
+                enabled = !busy,
+            ) {
+                Text(stringResource(R.string.hide_list_title))
+            }
             androidx.compose.material3.TextButton(onClick = ::diagnose, enabled = !busy) {
                 Text(stringResource(R.string.xiaocaiye_diagnose))
             }
@@ -135,6 +142,13 @@ fun XiaocaiyeScreen(navigator: DestinationsNavigator) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(vertical = 12.dp),
             )
+            androidx.compose.material3.FilledTonalButton(
+                onClick = dropUnlessResumed { navigator.navigate(AppHideListScreenDestination) },
+                enabled = !busy,
+                modifier = Modifier.padding(bottom = 8.dp),
+            ) {
+                Text(stringResource(R.string.hide_list_title))
+            }
             Text(
                 text = hintUp,
                 style = MaterialTheme.typography.bodyLarge,

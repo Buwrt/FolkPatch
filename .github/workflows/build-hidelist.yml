@@ -1,0 +1,32 @@
+name: Build HideList (artifact only)
+
+on:
+  push:
+    branches: [ feat/app-hide-list ]
+  workflow_dispatch:
+
+jobs:
+  build_debug:
+    name: Build Debug APK (no release publish)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-build-env
+      - name: Verify version
+        run: ./gradlew printVersion --no-daemon
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --no-daemon
+      - name: Rename APK
+        run: |
+          SHORT="${GITHUB_SHA::7}"
+          APK=$(find app/build/outputs -name "*.apk" -type f | head -1)
+          echo "found: $APK"
+          [ -n "$APK" ] && mv "$APK" "FolkPatch-HideList-Debug-${SHORT}.apk"
+          ls -lh FolkPatch-HideList-Debug-*.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: folkpatch-hidelist-debug-${{ github.sha }}
+          path: FolkPatch-HideList-Debug-*.apk
+          retention-days: 30

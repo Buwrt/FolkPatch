@@ -167,6 +167,62 @@ object Xiaocaiye {
     }
 
     /**
+     * Applies an app-hide blacklist / whitelist in one shot.
+     *
+     * The lists are written to disk first (the shell cannot read straight out of
+     * the APK, and embedding a long app list in a shell command risks blowing the
+     * command length limit), then the bundled script merges them into
+     * /data/adb/tricky_store/target.txt and /data/adb/ap/package_config.
+     *
+     * @param black apps to hide, as (package name, uid)
+     * @param white apps that must never be hidden (highest priority)
+     */
+    fun applyHideList(
+        context: Context,
+        black: List<Pair<String, Int>>,
+        white: List<String>,
+        onLine: (String) -> Unit,
+    ): Boolean {
+        if (!ensureInstalled(context)) {
+            onLine("Failed to install helper payload")
+            return false
+        }
+
+        val dir = File(context.filesDir, "hideconf").apply { mkdirs() }
+        val blackFile = File(dir, "black.txt")
+        val whiteFile = File(dir, "white.txt")
+        return try {
+            blackFile.writeText(black.joinToString("\n") { "${it.first},${it.second}" } + "\n")
+            whiteFile.writeText(white.joinToString("\n") + "\n")
+
+            val env = env()
+            val steps = arrayOf(
+                "$env; mkdir -p $MODULE_DIR/XiaoCaiYe",
+                "$env; cp -f ${blackFile.absolutePath} $MODULE_DIR/XiaoCaiYe/隐藏黑名单.txt",
+                "$env; cp -f ${whiteFile.absolutePath} $MODULE_DIR/XiaoCaiYe/隐藏白名单.txt",
+                "$env; sh $MODULE_DIR/XiaoCaiYe/apply_hide_list.sh",
+            )
+
+            val stdout = object : CallbackList<String?>() {
+                override fun onAddElement(s: String?) { s?.let(onLine) }
+            }
+            val stderr = object : CallbackList<String?>() {
+                override fun onAddElement(s: String?) { s?.let(onLine) }
+            }
+
+            val result = withNewRootShell {
+                newJob().add(*steps).to(stdout, stderr).exec()
+            }
+            Log.i(TAG, "applyHideList(${black.size} black / ${white.size} white) -> ${result.isSuccess}")
+            result.isSuccess
+        } catch (e: Exception) {
+            Log.e(TAG, "applyHideList failed", e)
+            onLine("applyHideList failed: ${e.message}")
+            false
+        }
+    }
+
+    /**
      * Runs [option] on a root shell, streaming stdout/stderr line by line.
      * Returns false when the payload could not be installed or the shell failed.
      */
