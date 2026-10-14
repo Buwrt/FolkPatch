@@ -341,7 +341,7 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
                         .fillMaxWidth()
                         .padding(bottom = 12.dp),
                 ) {
-                    Icon(Icons.Filled.ContentCopy, contentDescription = null)
+                    Icon(Icons.Filled.Code, contentDescription = null)
                     Text(
                         text = stringResource(R.string.hma_copy_log),
                         modifier = Modifier.padding(start = 8.dp),
