@@ -1,28 +1,25 @@
 package me.bmax.apatch.ui.screen.module
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,10 +28,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.dropUnlessResumed
 import com.ramcosta.composedestinations.annotation.Destination
@@ -45,21 +42,24 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.bmax.apatch.R
 import me.bmax.apatch.ui.component.folk.FolkScaffold
-import me.bmax.apatch.util.AppHideRules
 import me.bmax.apatch.util.HmaConfig
 import me.bmax.apatch.util.HmaConfigIo
 import me.bmax.apatch.util.ui.showToast
+import org.json.JSONObject
 
 private const val BLACKLIST_TEMPLATE = "黑名单"
 
 /**
- * Edits Hide-My-Applist's config.json in place.
+ * Edits Hide-My-Applist's config.json.
  *
  * HMA is caller-centric, so this screen has two sides that must not be mixed
- * up. "Protected apps" are the scope keys: the apps doing the asking, such as a
- * banking app or a game, and they are what HMA shields. "Hidden apps" are the
- * blacklist template contents: the root traces HMA keeps out of that app's
- * sight. One tap sorts every installed package into the right side.
+ * up. Protected apps are the scope keys: the apps doing the asking, such as a
+ * banking app or a game, and they are what HMA shields. Hidden apps are the
+ * blacklist template contents: the root traces HMA keeps out of their sight.
+ *
+ * The config is read through the root shell, which can fail for reasons the
+ * user cannot see, so importing and exporting through the file picker is kept
+ * as a fallback path that works regardless of what the root shell can reach.
  */
 @Composable
 @Destination<RootGraph>
@@ -68,15 +68,23 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
     val scope = rememberCoroutineScope()
 
     var apps by remember { mutableStateOf<List<HmaConfigIo.Installed>>(emptyList()) }
-    var config: HmaConfig.Config? by remember { mutableStateOf(null) }
+    var config by remember { mutableStateOf<HmaConfig.Config?>(null) }
     var targets by remember { mutableStateOf<Set<String>>(emptySet()) }
     var traces by remember { mutableStateOf<Set<String>>(emptySet()) }
     var loaded by remember { mutableStateOf(false) }
-    var sourcePath by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var log by remember { mutableStateOf("") }
     var query by remember { mutableStateOf("") }
     var tabIndex by remember { mutableIntStateOf(0) }
+    var sourcePath by remember { mutableStateOf("") }
+
+    fun adopt(parsed: HmaConfig.Config, installed: List<HmaConfigIo.Installed>) {
+        config = parsed
+        apps = installed
+        targets = parsed.scope.keys.toSet()
+        traces = parsed.template(BLACKLIST_TEMPLATE)?.appList?.toSet() ?: emptySet()
+        loaded = true
+    }
 
     fun load() {
         if (busy) return
@@ -92,11 +100,7 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
                     log = context.getString(R.string.hma_missing) + "\n" + HmaConfigIo.diagnose()
                 } else {
                     sourcePath = parsed.sourcePath
-                    config = parsed
-                    apps = installed
-                    targets = parsed.scope.keys.toSet()
-                    traces = parsed.template(BLACKLIST_TEMPLATE)?.appList?.toSet() ?: emptySet()
-                    loaded = true
+                    adopt(parsed, installed)
                 }
                 busy = false
             }
@@ -109,18 +113,14 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
         log = ""
         scope.launch(Dispatchers.IO) {
             val base = HmaConfigIo.read() ?: HmaConfig.Config(
-                org.json.JSONObject().apply { put("configVersion", 93) }
+                JSONObject().apply { put("configVersion", 93) }
             ).apply { sourcePath = HmaConfigIo.resolveWritePath() }
             val installed = HmaConfigIo.installedApps(context)
-            val pair = HmaConfigIo.applyOneTap(context, base, BLACKLIST_TEMPLATE, true)
+            val counts = HmaConfigIo.applyOneTap(context, base, BLACKLIST_TEMPLATE, true)
             withContext(Dispatchers.Main.immediate) {
                 sourcePath = base.sourcePath
-                config = base
-                apps = installed
-                targets = base.scope.keys.toSet()
-                traces = base.template(BLACKLIST_TEMPLATE)?.appList?.toSet() ?: emptySet()
-                loaded = true
-                log = context.getString(R.string.hma_scanned, pair.first, pair.second)
+                adopt(base, installed)
+                log = context.getString(R.string.hma_scanned, counts.first, counts.second)
                 busy = false
             }
         }
@@ -151,6 +151,53 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
                 showToast(
                     context,
                     context.getString(if (ok) R.string.hma_saved else R.string.hma_failed)
+                )
+            }
+        }
+    }
+
+    // Fallback entry points: if the root shell cannot reach the config, the
+    // user can hand us the file directly and take the result back out.
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        busy = true
+        log = ""
+        scope.launch(Dispatchers.IO) {
+            val text = runCatching {
+                context.contentResolver.openInputStream(uri)
+                    ?.bufferedReader()?.use { it.readText() }
+            }.getOrNull()
+            val parsed = text?.let { HmaConfig.parse(it) }
+            val installed = HmaConfigIo.installedApps(context)
+            withContext(Dispatchers.Main.immediate) {
+                if (parsed == null) {
+                    log = context.getString(R.string.hma_import_fail)
+                } else {
+                    sourcePath = ""
+                    adopt(parsed, installed)
+                    log = context.getString(R.string.hma_import_ok, parsed.scope.size)
+                }
+                busy = false
+            }
+        }
+    }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        val cfg = config ?: return@rememberLauncherForActivityResult
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch(Dispatchers.IO) {
+            val ok = runCatching {
+                context.contentResolver.openOutputStream(uri)
+                    ?.use { it.write(cfg.toJson().toByteArray()) }
+            }.isSuccess
+            withContext(Dispatchers.Main.immediate) {
+                showToast(
+                    context,
+                    context.getString(if (ok) R.string.hma_export_ok else R.string.hma_export_fail)
                 )
             }
         }
@@ -205,13 +252,50 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
                 }
             }
 
-            if (busy) {
-                Column(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+            Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                OutlinedButton(
+                    onClick = { importLauncher.launch(arrayOf("application/json", "text/*")) },
+                    enabled = !busy,
+                    modifier = Modifier.weight(1f),
                 ) {
-                    CircularProgressIndicator(modifier = Modifier.padding(top = 32.dp))
+                    Icon(Icons.Filled.Upload, contentDescription = null)
+                    Text(
+                        text = stringResource(R.string.hma_import),
+                        modifier = Modifier.padding(start = 6.dp),
+                    )
                 }
+                OutlinedButton(
+                    onClick = { exportLauncher.launch("hma-config.json") },
+                    enabled = !busy && loaded,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 8.dp),
+                ) {
+                    Icon(Icons.Filled.Download, contentDescription = null)
+                    Text(
+                        text = stringResource(R.string.hma_export),
+                        modifier = Modifier.padding(start = 6.dp),
+                    )
+                }
+            }
+
+            if (loaded && sourcePath.isNotBlank()) {
+                Text(
+                    text = stringResource(R.string.hma_source, sourcePath),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            }
+
+            if (busy) {
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .padding(top = 32.dp)
+                        .fillMaxWidth(),
+                )
             } else if (loaded) {
                 HmaBody(
                     apps = apps,
@@ -229,19 +313,6 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
                     },
                     onSave = ::save,
                     saving = busy,
-                    targetCount = targets.size,
-                    traceCount = traces.size,
-                )
-            }
-
-            if (loaded && sourcePath.isNotBlank()) {
-                Text(
-                    text = stringResource(R.string.hma_source, sourcePath),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    maxLines = 2,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(vertical = 4.dp),
                 )
             }
 
@@ -256,102 +327,6 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
                         .padding(vertical = 8.dp),
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun HmaBody(
-    apps: List<HmaConfigIo.Installed>,
-    targets: Set<String>,
-    traces: Set<String>,
-    query: String,
-    tabIndex: Int,
-    onQueryChange: (String) -> Unit,
-    onTabChange: (Int) -> Unit,
-    onTargetToggle: (String) -> Unit,
-    onTraceToggle: (String) -> Unit,
-    onSave: () -> Unit,
-    saving: Boolean,
-    targetCount: Int,
-    traceCount: Int,
-) {
-    val wantedTargets = tabIndex == 0
-    val accent = if (wantedTargets) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.error
-    }
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = tabIndex, modifier = Modifier.padding(top = 12.dp)) {
-            Tab(
-                selected = wantedTargets,
-                onClick = { onTabChange(0) },
-                text = { Text(stringResource(R.string.hma_tab_targets, targetCount)) },
-            )
-            Tab(
-                selected = !wantedTargets,
-                onClick = { onTabChange(1) },
-                text = { Text(stringResource(R.string.hma_tab_traces, traceCount)) },
-            )
-        }
-
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            singleLine = true,
-            placeholder = { Text(stringResource(R.string.hma_search)) },
-        )
-
-        val selected = if (wantedTargets) targets else traces
-        val visible = apps.filter {
-            (query.isBlank() || it.label.contains(query, ignoreCase = true) ||
-                it.pkg.contains(query, ignoreCase = true)) &&
-                (query.isNotBlank() || it.pkg in selected ||
-                    AppHideRules.classify(it.pkg, it.isSystem).kind ==
-                    if (wantedTargets) AppHideRules.Kind.DETECTOR else AppHideRules.Kind.ROOT_TRACE)
-        }
-
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(bottom = 12.dp),
-        ) {
-            items(visible, key = { it.pkg }) { app ->
-                val kind = AppHideRules.classify(app.pkg, app.isSystem)
-                HmaAppRow(
-                    label = app.label,
-                    pkg = app.pkg,
-                    reason = kind.reason,
-                    icon = if (wantedTargets) {
-                        Icons.Filled.Security
-                    } else {
-                        Icons.Filled.VisibilityOff
-                    },
-                    accent = accent,
-                    checked = app.pkg in selected,
-                    onCheckedChange = {
-                        if (wantedTargets) onTargetToggle(app.pkg) else onTraceToggle(app.pkg)
-                    },
-                )
-            }
-        }
-
-        Button(
-            onClick = onSave,
-            enabled = !saving,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-        ) {
-            Icon(Icons.Filled.Save, contentDescription = null)
-            Text(
-                text = stringResource(R.string.hma_save),
-                modifier = Modifier.padding(start = 8.dp),
-            )
         }
     }
 }

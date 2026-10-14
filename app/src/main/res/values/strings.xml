@@ -1566,4 +1566,10 @@ Here are some possible reasons for authentication failure—please check which o
     <string name="hma_failed">Failed to write HMA config</string>
 
     <string name="hma_source">Source: %1$s</string>
+    <string name="hma_import">Import file</string>
+    <string name="hma_export">Export file</string>
+    <string name="hma_import_ok">Imported %1$d protected apps</string>
+    <string name="hma_import_fail">Import failed: not a valid HMA config.json</string>
+    <string name="hma_export_ok">Config exported</string>
+    <string name="hma_export_fail">Export failed</string>
 </resources>
