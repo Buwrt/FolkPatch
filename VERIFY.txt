@@ -1,2 +1,1 @@
-=== expected (upstream) vs committed ===
-ALL OK
+no verify output
