@@ -5,6 +5,9 @@ on:
     branches: [ feat/app-hide-list ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build_debug:
     name: Build Debug APK (no release publish)
@@ -17,8 +20,12 @@ jobs:
       - name: Verify version
         run: ./gradlew printVersion --no-daemon
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon
+        id: build
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon 2>&1 | tee build.log
       - name: Rename APK
+        if: success()
         run: |
           SHORT="${GITHUB_SHA::7}"
           APK=$(find app/build/outputs -name "*.apk" -type f | head -1)
@@ -26,7 +33,19 @@ jobs:
           [ -n "$APK" ] && mv "$APK" "FolkPatch-HideList-Debug-${SHORT}.apk"
           ls -lh FolkPatch-HideList-Debug-*.apk
       - uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: folkpatch-hidelist-debug-${{ github.sha }}
           path: FolkPatch-HideList-Debug-*.apk
           retention-days: 30
+      - name: Publish build log to ci-logs branch
+        if: always()
+        run: |
+          git config user.email "ci-bot@users.noreply.github.com"
+          git config user.name "ci-bot"
+          git checkout -B ci-logs
+          mkdir -p logs
+          cp build.log "logs/${GITHUB_SHA::7}.log" || echo "no build.log"
+          git add -A logs
+          git commit -m "ci: build log ${GITHUB_SHA::7}" || echo "nothing to commit"
+          git push -f origin ci-logs
