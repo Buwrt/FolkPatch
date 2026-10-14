@@ -2,12 +2,10 @@ package me.bmax.apatch.ui.screen.module
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.dropUnlessResumed
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
-import com.ramcosta.composedestinations.generated.destinations.AppHideScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.AppHideListScreenDestination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import com.ramcosta.composedestinations.generated.destinations.AppHideListScreenDestination
 import kotlinx.coroutines.Dispatchers
@@ -163,15 +161,6 @@ fun XiaocaiyeScreen(navigator: DestinationsNavigator) {
                 modifier = Modifier.padding(vertical = 2.dp),
             )
 
-            OutlinedButton(
-                onClick = dropUnlessResumed { navigator.navigate(AppHideScreenDestination) },
-                enabled = !busy,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-            ) {
-                Text(stringResource(R.string.app_hide_entry))
-            }
 
             val statusText = if (busy) {
                 stringResource(R.string.xiaocaiye_running)
