@@ -1501,8 +1501,6 @@ KernelPatch 需要修补 boot 镜像。
     <string name="hma_load">读取</string>
     <string name="hma_save">保存到 HMA</string>
     <string name="hma_search">搜索应用名或包名</string>
-    <string name="hma_tab_targets">被保护 (%1$d)</string>
-    <string name="hma_tab_traces">被隐藏 (%1$d)</string>
     <string name="hma_stats">%1$d 个被保护应用，%2$d 个被隐藏应用</string>
     <string name="hma_scanned">扫描完成：%1$d 个被保护，%2$d 个被隐藏</string>
     <string name="hma_missing">无法读取 HMA 的 config.json，请确认 Hide-My-Applist 已安装并启用。</string>
@@ -1516,4 +1514,9 @@ KernelPatch 需要修补 boot 镜像。
     <string name="hma_import_fail">导入失败：不是有效的 HMA config.json</string>
     <string name="hma_export_ok">配置已导出</string>
     <string name="hma_export_fail">导出失败</string>
+    <string name="hma_tab_black">黑名单 (%1$d)</string>
+    <string name="hma_tab_white">白名单 (%1$d)</string>
+    <string name="hma_black_hint">勾选的应用会被隐藏</string>
+    <string name="hma_white_hint">勾选的应用即使命中黑名单也不隐藏，优先级最高</string>
+    <string name="hma_white_empty">白名单为空，搜索应用可添加豁免</string>
 </resources>

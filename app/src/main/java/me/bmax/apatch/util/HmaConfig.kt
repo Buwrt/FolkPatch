@@ -29,9 +29,18 @@ import org.json.JSONObject
  */
 object HmaConfig {
 
-    /** HMA's own package, and where it keeps the config. */
     const val PKG = "com.tsng.hidemyapplist"
     const val PATH = "/data/data/$PKG/files/config.json"
+
+    /**
+     * The two template names this screen owns.
+     *
+     * Blacklist is HMA's default and recommended mode: everything listed is
+     * hidden from the target app. The whitelist template is applied as an
+     * override, so a package on both sides stays visible.
+     */
+    const val BLACKLIST_TEMPLATE = "黑名单"
+    const val WHITELIST_TEMPLATE = "白名单"
 
     /** A template is just a named bag of packages plus a UI hint. */
     class Template(val raw: JSONObject, val name: String) {

@@ -1557,8 +1557,6 @@ Here are some possible reasons for authentication failure—please check which o
     <string name="hma_load">Load</string>
     <string name="hma_save">Save to HMA</string>
     <string name="hma_search">Search app name or package</string>
-    <string name="hma_tab_targets">Protected (%1$d)</string>
-    <string name="hma_tab_traces">Hidden (%1$d)</string>
     <string name="hma_stats">%1$d protected apps, %2$d hidden apps</string>
     <string name="hma_scanned">Scanned: %1$d protected, %2$d hidden</string>
     <string name="hma_missing">Could not read HMA config.json. Is Hide-My-Applist installed and enabled?</string>
@@ -1572,4 +1570,9 @@ Here are some possible reasons for authentication failure—please check which o
     <string name="hma_import_fail">Import failed: not a valid HMA config.json</string>
     <string name="hma_export_ok">Config exported</string>
     <string name="hma_export_fail">Export failed</string>
+    <string name="hma_tab_black">黑名单 (%1$d)</string>
+    <string name="hma_tab_white">白名单 (%1$d)</string>
+    <string name="hma_black_hint">勾选的应用会被隐藏</string>
+    <string name="hma_white_hint">勾选的应用即使命中黑名单也不隐藏，优先级最高</string>
+    <string name="hma_white_empty">白名单为空，搜索应用可添加豁免</string>
 </resources>

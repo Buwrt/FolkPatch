@@ -8,9 +8,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -27,52 +27,61 @@ import me.bmax.apatch.util.AppHideRules
 import me.bmax.apatch.util.HmaConfigIo
 
 /**
- * The two editable sides of an HMA config.
+ * The two lists the user edits.
  *
- * Tab 0 is the protected side (scope keys, tinted primary) and tab 1 is the
- * hidden side (blacklist template contents, tinted error). Both show the same
- * installed app list but filter on a different [AppHideRules.Kind] so each tab
- * defaults to the apps that belong on it.
+ * Both tabs show the same installed apps and keep their own checkbox state, so
+ * the two lists are independent. Blacklist means "hide this from the target
+ * app"; whitelist means "keep this visible", and it is checked first in HMA, so
+ * it wins when the same package appears on both sides.
+ *
+ * The blacklist tab pre-filters to root traces because those are what actually
+ * need hiding. The whitelist starts empty, since nothing is exempt by default,
+ * and the user searches to add exceptions.
  */
 @Composable
 fun HmaBody(
     apps: List<HmaConfigIo.Installed>,
-    targets: Set<String>,
-    traces: Set<String>,
+    blacks: Set<String>,
+    whites: Set<String>,
     query: String,
     tabIndex: Int,
     onQueryChange: (String) -> Unit,
     onTabChange: (Int) -> Unit,
-    onTargetToggle: (String) -> Unit,
-    onTraceToggle: (String) -> Unit,
+    onBlackToggle: (String) -> Unit,
+    onWhiteToggle: (String) -> Unit,
     onSave: () -> Unit,
     saving: Boolean,
 ) {
-    val wantedTargets = tabIndex == 0
-    val accent = if (wantedTargets) {
-        MaterialTheme.colorScheme.primary
-    } else {
+    val isBlack = tabIndex == 0
+    val accent = if (isBlack) {
         MaterialTheme.colorScheme.error
-    }
-    val wantedKind = if (wantedTargets) {
-        AppHideRules.Kind.DETECTOR
     } else {
-        AppHideRules.Kind.ROOT_TRACE
+        MaterialTheme.colorScheme.primary
     }
+    val selected = if (isBlack) blacks else whites
 
     Column(modifier = Modifier.fillMaxSize()) {
         TabRow(selectedTabIndex = tabIndex, modifier = Modifier.padding(top = 12.dp)) {
             Tab(
-                selected = wantedTargets,
+                selected = isBlack,
                 onClick = { onTabChange(0) },
-                text = { Text(stringResource(R.string.hma_tab_targets, targets.size)) },
+                text = { Text(stringResource(R.string.hma_tab_black, blacks.size)) },
             )
             Tab(
-                selected = !wantedTargets,
+                selected = !isBlack,
                 onClick = { onTabChange(1) },
-                text = { Text(stringResource(R.string.hma_tab_traces, traces.size)) },
+                text = { Text(stringResource(R.string.hma_tab_white, whites.size)) },
             )
         }
+
+        Text(
+            text = stringResource(
+                if (isBlack) R.string.hma_black_hint else R.string.hma_white_hint
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
+        )
 
         OutlinedTextField(
             value = query,
@@ -84,14 +93,28 @@ fun HmaBody(
             placeholder = { Text(stringResource(R.string.hma_search)) },
         )
 
-        val selected = if (wantedTargets) targets else traces
         val visible = apps.filter {
             if (query.isBlank()) {
-                it.pkg in selected || AppHideRules.classify(it.pkg, it.isSystem).kind == wantedKind
+                if (isBlack) {
+                    it.pkg in blacks ||
+                        AppHideRules.classify(it.pkg, it.isSystem).kind ==
+                        AppHideRules.Kind.ROOT_TRACE
+                } else {
+                    it.pkg in whites
+                }
             } else {
                 it.label.contains(query, ignoreCase = true) ||
                     it.pkg.contains(query, ignoreCase = true)
             }
+        }
+
+        if (!isBlack && query.isBlank() && whites.isEmpty()) {
+            Text(
+                text = stringResource(R.string.hma_white_empty),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.padding(vertical = 8.dp),
+            )
         }
 
         LazyColumn(
@@ -104,15 +127,11 @@ fun HmaBody(
                     label = app.label,
                     pkg = app.pkg,
                     reason = kind.reason,
-                    icon = if (wantedTargets) {
-                        Icons.Filled.Security
-                    } else {
-                        Icons.Filled.VisibilityOff
-                    },
+                    icon = if (isBlack) Icons.Filled.Block else Icons.Filled.Check,
                     accent = accent,
                     checked = app.pkg in selected,
                     onCheckedChange = {
-                        if (wantedTargets) onTargetToggle(app.pkg) else onTraceToggle(app.pkg)
+                        if (isBlack) onBlackToggle(app.pkg) else onWhiteToggle(app.pkg)
                     },
                 )
             }

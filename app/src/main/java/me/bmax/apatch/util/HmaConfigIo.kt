@@ -174,49 +174,73 @@ object HmaConfigIo {
             (ai.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
 
     /**
-     * One-tap fill: sort installed apps into HMA's two sides.
+     * One-tap fill: sort installed apps into HMA's two lists.
      *
-     * Detectors (banking, games, checkers) become scope entries that apply the
-     * blacklist template, because they are the apps doing the querying. Root
-     * traces (Magisk, LSPosed, Shizuku) go into the blacklist template itself,
-     * because they are what must be hidden from those queries.
+     * Root traces (Magisk, LSPosed, Shizuku) land on the blacklist because they
+     * are what must be hidden. Everything else is left visible, and the
+     * whitelist is left empty for the user to opt apps into as overrides.
      */
     fun applyOneTap(
         context: Context,
         config: HmaConfig.Config,
-        blacklistTemplateName: String,
         removeDisappeared: Boolean,
     ): Pair<Int, Int> {
         val apps = installedApps(context)
-        val blacklist = config.ensureTemplate(blacklistTemplateName, isWhitelist = false)
+        val blacklist = config.ensureTemplate(HmaConfig.BLACKLIST_TEMPLATE, isWhitelist = false)
+        config.ensureTemplate(HmaConfig.WHITELIST_TEMPLATE, isWhitelist = true)
 
-        val traces = LinkedHashSet(blacklist.appList)
-        val targets = LinkedHashSet<String>()
+        val blacks = LinkedHashSet(blacklist.appList)
+        val whites = LinkedHashSet(
+            config.template(HmaConfig.WHITELIST_TEMPLATE)?.appList ?: emptySet()
+        )
 
         apps.forEach { app ->
-            when (AppHideRules.classify(app.pkg, app.isSystem).kind) {
-                AppHideRules.Kind.DETECTOR -> targets.add(app.pkg)
-                AppHideRules.Kind.ROOT_TRACE -> traces.add(app.pkg)
-                else -> Unit
+            if (AppHideRules.classify(app.pkg, app.isSystem).kind ==
+                AppHideRules.Kind.ROOT_TRACE
+            ) {
+                blacks.add(app.pkg)
             }
         }
 
         if (removeDisappeared) {
             val present = apps.map { it.pkg }.toSet()
-            traces.removeAll { it !in present }
+            blacks.removeAll { it !in present }
+            whites.removeAll { it !in present }
             config.scope.keys.toList().forEach { pkg ->
-                if (pkg !in present && pkg !in targets) config.removeScope(pkg)
+                if (pkg !in present) config.removeScope(pkg)
             }
         }
 
-        blacklist.setAppList(traces)
+        blacklist.setAppList(blacks)
+        config.template(HmaConfig.WHITELIST_TEMPLATE)?.setAppList(whites)
+        syncScope(context, config, whites)
+        return blacks.size to whites.size
+    }
+
+    /**
+     * Rewrites the scope from the current blacklist/whitelist choice.
+     *
+     * Detectors become scope entries that apply the blacklist template. The
+     * whitelist is mirrored into each entry's extraOppositeAppList, which
+     * HMAService.shouldHide checks before any template, so a whitelisted
+     * package stays visible even when the blacklist also names it.
+     */
+    fun syncScope(
+        context: Context,
+        config: HmaConfig.Config,
+        whites: Set<String>,
+    ): Int {
+        val apps = installedApps(context)
+        val targets = apps.filter {
+            AppHideRules.classify(it.pkg, it.isSystem).kind == AppHideRules.Kind.DETECTOR
+        }.map { it.pkg }
 
         targets.forEach { pkg ->
             val appConfig = config.scopeConfig(pkg)
             appConfig.useWhitelist = false
-            appConfig.setApplyTemplates(listOf(blacklistTemplateName))
+            appConfig.setApplyTemplates(listOf(HmaConfig.BLACKLIST_TEMPLATE))
+            appConfig.setExtraOppositeAppList(whites)
         }
-
-        return targets.size to traces.size
+        return targets.size
     }
 }

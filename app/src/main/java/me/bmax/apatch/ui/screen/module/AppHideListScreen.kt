@@ -47,7 +47,8 @@ import me.bmax.apatch.util.HmaConfigIo
 import me.bmax.apatch.util.ui.showToast
 import org.json.JSONObject
 
-private const val BLACKLIST_TEMPLATE = "黑名单"
+private const val BLACKLIST_TEMPLATE = HmaConfig.BLACKLIST_TEMPLATE
+private const val WHITELIST_TEMPLATE = HmaConfig.WHITELIST_TEMPLATE
 
 /**
  * Edits Hide-My-Applist's config.json.
@@ -56,6 +57,10 @@ private const val BLACKLIST_TEMPLATE = "黑名单"
  * up. Protected apps are the scope keys: the apps doing the asking, such as a
  * banking app or a game, and they are what HMA shields. Hidden apps are the
  * blacklist template contents: the root traces HMA keeps out of their sight.
+ *
+ * Two lists are exposed: a blacklist of apps to hide, and a whitelist of apps
+ * to keep visible. The whitelist is applied as an override and wins when a
+ * package appears on both sides.
  *
  * The config is read through the root shell, which can fail for reasons the
  * user cannot see, so importing and exporting through the file picker is kept
@@ -69,8 +74,8 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
 
     var apps by remember { mutableStateOf<List<HmaConfigIo.Installed>>(emptyList()) }
     var config by remember { mutableStateOf<HmaConfig.Config?>(null) }
-    var targets by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var traces by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var blacks by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var whites by remember { mutableStateOf<Set<String>>(emptySet()) }
     var loaded by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var log by remember { mutableStateOf("") }
@@ -81,8 +86,8 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
     fun adopt(parsed: HmaConfig.Config, installed: List<HmaConfigIo.Installed>) {
         config = parsed
         apps = installed
-        targets = parsed.scope.keys.toSet()
-        traces = parsed.template(BLACKLIST_TEMPLATE)?.appList?.toSet() ?: emptySet()
+        blacks = parsed.template(BLACKLIST_TEMPLATE)?.appList?.toSet() ?: emptySet()
+        whites = parsed.template(WHITELIST_TEMPLATE)?.appList?.toSet() ?: emptySet()
         loaded = true
     }
 
@@ -116,7 +121,7 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
                 JSONObject().apply { put("configVersion", 93) }
             ).apply { sourcePath = HmaConfigIo.resolveWritePath() }
             val installed = HmaConfigIo.installedApps(context)
-            val counts = HmaConfigIo.applyOneTap(context, base, BLACKLIST_TEMPLATE, true)
+            val counts = HmaConfigIo.applyOneTap(context, base, true)
             withContext(Dispatchers.Main.immediate) {
                 sourcePath = base.sourcePath
                 adopt(base, installed)
@@ -132,16 +137,9 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
         busy = true
         log = ""
         scope.launch(Dispatchers.IO) {
-            val blacklist = cfg.ensureTemplate(BLACKLIST_TEMPLATE, isWhitelist = false)
-            blacklist.setAppList(traces)
-            targets.forEach { pkg ->
-                val appConfig = cfg.scopeConfig(pkg)
-                appConfig.useWhitelist = false
-                appConfig.setApplyTemplates(listOf(BLACKLIST_TEMPLATE))
-            }
-            cfg.scope.keys.toList().forEach { pkg ->
-                if (pkg !in targets) cfg.removeScope(pkg)
-            }
+            cfg.ensureTemplate(BLACKLIST_TEMPLATE, isWhitelist = false).setAppList(blacks)
+            cfg.ensureTemplate(WHITELIST_TEMPLATE, isWhitelist = true).setAppList(whites)
+            HmaConfigIo.syncScope(context, cfg, whites)
             val target = cfg.sourcePath.ifBlank { HmaConfigIo.resolveWritePath() }
             val lines = ArrayList<String>()
             val ok = HmaConfigIo.write(context, cfg, target) { line -> lines.add(line) }
@@ -299,17 +297,17 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
             } else if (loaded) {
                 HmaBody(
                     apps = apps,
-                    targets = targets,
-                    traces = traces,
+                    blacks = blacks,
+                    whites = whites,
                     query = query,
                     tabIndex = tabIndex,
                     onQueryChange = { query = it },
                     onTabChange = { tabIndex = it },
-                    onTargetToggle = { pkg ->
-                        targets = if (pkg in targets) targets - pkg else targets + pkg
+                    onBlackToggle = { pkg ->
+                        blacks = if (pkg in blacks) blacks - pkg else blacks + pkg
                     },
-                    onTraceToggle = { pkg ->
-                        traces = if (pkg in traces) traces - pkg else traces + pkg
+                    onWhiteToggle = { pkg ->
+                        whites = if (pkg in whites) whites - pkg else whites + pkg
                     },
                     onSave = ::save,
                     saving = busy,
