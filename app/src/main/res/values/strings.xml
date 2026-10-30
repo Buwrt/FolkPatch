@@ -309,6 +309,7 @@
 
 
     <string name="apm_webui_open">Open</string>
+    <string name="webui_root_shell_unavailable">Could not get root access to open this WebUI. Reboot and try again.</string>
     <string name="apm_action">Action</string>
     <string name="module_shortcut_add">Shortcut</string>
     <string name="module_shortcut_not_supported">Launcher does not support desktop shortcuts.</string>
