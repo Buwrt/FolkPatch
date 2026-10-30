@@ -117,11 +117,30 @@ public final class SuFilePathHandler implements WebViewAssetLoader.PathHandler {
                 throw new IllegalArgumentException("The given directory \"" + directory
                         + "\" doesn't exist under an allowed app internal storage directory");
             }
-            mShell = APatchCliKt.createRootShellStrict(true, "WebUI static asset loader");
+            mShell = openRootShell();
         } catch (Exception e) {
             throw new IllegalArgumentException(
                     "Failed to initialize root-backed WebUI path handler for directory: "
                             + directory.getPath(), e);
+        }
+    }
+
+    /**
+     * Opens the root shell used to read module files from /data/adb.
+     *
+     * <p>A mount-master shell is convenient but not required: reading a module's
+     * webroot only needs a root shell that can reach /data/adb. Falling back
+     * keeps the WebUI usable instead of failing the whole activity.
+     */
+    private static Shell openRootShell() {
+        try {
+            return APatchCliKt.createRootShellStrict(true, "WebUI static asset loader");
+        } catch (Exception mountMasterError) {
+            android.util.Log.w(
+                    "SuFilePathHandler",
+                    "mount-master root shell unavailable, retrying without it",
+                    mountMasterError);
+            return APatchCliKt.createRootShellStrict(false, "WebUI static asset loader");
         }
     }
 
