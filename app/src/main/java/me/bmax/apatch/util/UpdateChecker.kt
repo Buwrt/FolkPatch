@@ -10,8 +10,11 @@ import me.bmax.apatch.BuildConfig
 
 object UpdateChecker {
     private const val TAG = "UpdateChecker"
-    private const val UPDATE_API_URL = "https://folk.mysqil.com/api/version"
-    private const val UPDATE_URL = "https://github.com/LyraVoid/FolkPatch/releases"
+    // The update check now reads this fork's own releases, so a published
+    // version here is what the app compares against.
+    private const val UPDATE_API_URL = "https://api.github.com/repos/Buwrt/FolkPatch/releases/latest"
+    private const val UPDATE_URL = "https://github.com/Buwrt/FolkPatch/releases"
+    private val TAG_NAME_REGEX = Regex("\"tag_name\"\\s*:\\s*\"([^\"]+)\"")
 
     suspend fun checkUpdate(): Boolean {
         return withContext(Dispatchers.IO) {
@@ -24,11 +27,17 @@ object UpdateChecker {
                 )
                 val rawResponse = result.getOrNull() ?: return@withContext false
 
-                val remoteVersionCodeStr = rawResponse.replace("\uFEFF", "").trim()
+                // The release tag carries the version code, e.g. "v115115".
+                val remoteVersionCodeStr = TAG_NAME_REGEX
+                    .find(rawResponse.replace("\uFEFF", ""))
+                    ?.groupValues
+                    ?.getOrNull(1)
+                    ?.filter(Char::isDigit)
+                    .orEmpty()
                 Log.d(TAG, "Parsed version string: '$remoteVersionCodeStr'")
 
                 val remoteVersionCode = remoteVersionCodeStr.toIntOrNull()
-                if (remoteVersionCode != null) {
+                if (remoteVersionCode != null && remoteVersionCodeStr.isNotEmpty()) {
                     Log.d(TAG, "Remote: $remoteVersionCode, Local: ${BuildConfig.VERSION_CODE}")
                     return@withContext remoteVersionCode > BuildConfig.VERSION_CODE
                 } else {
