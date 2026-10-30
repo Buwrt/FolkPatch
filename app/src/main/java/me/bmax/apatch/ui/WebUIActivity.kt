@@ -308,7 +308,7 @@ class WebUIActivity : AppCompatActivity() {
                     android.widget.Toast.LENGTH_LONG
                 ).show()
                 finish()
-                return@withContext
+                return
             }
 
             val newWebView = WebView(this@WebUIActivity).apply {
