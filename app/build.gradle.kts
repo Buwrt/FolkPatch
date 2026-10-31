@@ -74,11 +74,16 @@ val baseArgs = mutableListOf(
 android {
     namespace = "me.bmax.apatch"
     signingConfigs {
+        // KernelPatch authorises the manager by its signing certificate, which
+        // is baked into the patched boot image. Every build - debug and release
+        // - must therefore be signed with the SAME key, otherwise a boot image
+        // patched by one build rejects a manager built by another ("cannot get
+        // root / not patched"). The shared key lives at the repo root.
         create("release") {
-            storeFile = file(keystoreProperties.getProperty("KEYSTORE_FILE") ?: "debug.keystore")
-            storePassword = keystoreProperties.getProperty("KEYSTORE_PASSWORD") ?: "android"
-            keyAlias = keystoreProperties.getProperty("KEY_ALIAS") ?: "androiddebugkey"
-            keyPassword = keystoreProperties.getProperty("KEY_PASSWORD") ?: "android"
+            storeFile = file(keystoreProperties.getProperty("KEYSTORE_FILE") ?: "../folkpatch.jks")
+            storePassword = keystoreProperties.getProperty("KEYSTORE_PASSWORD") ?: "folkpatch"
+            keyAlias = keystoreProperties.getProperty("KEY_ALIAS") ?: "folkpatch"
+            keyPassword = keystoreProperties.getProperty("KEY_PASSWORD") ?: "folkpatch"
             enableV1Signing = false
             enableV2Signing = true
             enableV3Signing = false
@@ -89,6 +94,9 @@ android {
     buildTypes {
         debug {
             isDebuggable = true
+            // Same key as release: the patched boot image only trusts one
+            // manager certificate, and swapping keys would break root.
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             isShrinkResources = false
             proguardFiles(

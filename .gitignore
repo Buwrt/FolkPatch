@@ -7,6 +7,9 @@ captures
 .cxx
 *.keystore
 *.jks
+# The shared signing key: every build must use the same one, otherwise a boot
+# image patched by one build rejects a manager signed by another.
+!folkpatch.jks
 keystore.properties
 local.properties
 auth.properties

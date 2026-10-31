@@ -141,36 +141,22 @@ jobs:
       - name: Verify version
         run: ./gradlew printVersion --no-daemon
 
-      # No signing secret is configured on this fork, so generate a throwaway
-      # keystore instead of feeding an empty file to the release build.
-      - name: Decode keystore
+      # Every build is signed with the keystore committed at the repo root, so
+      # the manager signature never changes. KernelPatch bakes that certificate
+      # into the patched boot image, so a changed signature is exactly what
+      # makes the manager report "cannot get root / not patched".
+      - name: Configure keystore
         env:
           KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
           KS_PWD: ${{ secrets.KEYSTORE_PASSWORD }}
           KS_ALIAS: ${{ secrets.KEY_ALIAS }}
           KS_KEY_PWD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          if [ -z "$KS_B64" ]; then
-            # Sign with the keystore committed in ci/release-keystore.jks. Signing
-            # every build with the same key is what lets users upgrade in place:
-            # a freshly generated keystore per run changes the signature and
-            # forces an uninstall, which wipes the saved SuperKey.
-            echo "::notice::KEYSTORE_BASE64 is not set; signing with the repository keystore."
-            cp ci/release-keystore.jks FolkPatch.jks
-            cat > keystore.properties << 'EOF'
-          KEYSTORE_FILE=../FolkPatch.jks
-          KEYSTORE_PASSWORD=android
-          KEY_ALIAS=androiddebugkey
-          KEY_PASSWORD=android
-          EOF
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > ../folkpatch.jks
+            printf 'KEYSTORE_FILE=../folkpatch.jks\nKEYSTORE_PASSWORD=%s\nKEY_ALIAS=%s\nKEY_PASSWORD=%s\n' "$KS_PWD" "$KS_ALIAS" "$KS_KEY_PWD" > keystore.properties
           else
-            echo "$KS_B64" | base64 -d > FolkPatch.jks
-            cat > keystore.properties << EOF
-          KEYSTORE_FILE=../FolkPatch.jks
-          KEYSTORE_PASSWORD=$KS_PWD
-          KEY_ALIAS=$KS_ALIAS
-          KEY_PASSWORD=$KS_KEY_PWD
-          EOF
+            echo "::notice::No signing secret set; using the repository keystore."
           fi
 
       - run: ./gradlew assembleRelease --no-daemon
