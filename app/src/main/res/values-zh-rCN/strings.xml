@@ -127,6 +127,7 @@
     <string name="home_not_installed">未安装</string>
     <string name="home_install_unknown">内核补丁未安装</string>
     <string name="home_install_unknown_summary">当前无法获取 Root\n可能尚未修补或未刷入内核</string>
+    <string name="install_slot_hint">当前启动槽位：%1$s\n请把修补后的镜像刷入 boot%1$s。A/B 分区设备请同时刷入另一个槽位（boot_a 和 boot_b 都要刷），否则重启可能落到未修补的槽位。</string>
     <string name="home_click_to_install">点击安装</string>
     <string name="home_working">工作中</string>
     <string name="home_version">版本: %s</string>
