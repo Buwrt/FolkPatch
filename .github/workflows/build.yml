@@ -161,6 +161,11 @@ jobs:
           APK=$(find app/build/outputs/apk/debug -name "*.apk" -type f | head -1)
           [ -n "$APK" ] && mv "$APK" "FolkPatch-Debug-${SHORT}.apk"
 
+      - name: Print APK signing certificate
+        run: |
+          APK=$(find . -maxdepth 1 -name "FolkPatch-Debug-*.apk" | head -1)
+          echo "debug cert: $(unzip -p "$APK" META-INF/*.RSA | keytool -printcert | grep -m1 'SHA256:')"
+
       - uses: actions/upload-artifact@v4
         with:
           name: folkpatch-debug-${{ github.sha }}
@@ -240,6 +245,12 @@ jobs:
           SHORT="${GITHUB_SHA::7}"
           APK=$(find app/build/outputs/apk/release -name "*.apk" -type f | head -1)
           [ -n "$APK" ] && mv "$APK" "FolkPatch-Release-${SHORT}.apk"
+
+      - name: Print APK signing certificate
+        run: |
+          APK=$(find . -maxdepth 1 -name "FolkPatch-Release-*.apk" | head -1)
+          echo "RELEASE_SIGNATURE=$(unzip -p "$APK" META-INF/*.RSA 2>/dev/null | keytool -printcert 2>/dev/null | grep -m1 "SHA256:")"
+          echo "release cert: $(unzip -p "$APK" META-INF/*.RSA | keytool -printcert | grep -m1 'SHA256:')"
 
       - uses: actions/upload-artifact@v4
         with:
