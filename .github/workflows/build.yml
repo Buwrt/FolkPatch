@@ -164,7 +164,13 @@ jobs:
       - name: Print APK signing certificate
         run: |
           APK=$(find . -maxdepth 1 -name "FolkPatch-Debug-*.apk" | head -1)
-          echo "debug cert: $(unzip -p "$APK" META-INF/*.RSA | keytool -printcert | grep -m1 'SHA256:')"
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | head -1 || true)
+          if [ -n "$APKSIGNER" ]; then
+            "$APKSIGNER" verify --print-certs "$APK" 2>&1 | sed 's/^/::notice::/'
+          else
+            echo "::notice::apksigner not found; listing META-INF"
+            unzip -l "$APK" 2>&1 | sed 's/^/::notice::/'
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
@@ -249,8 +255,13 @@ jobs:
       - name: Print APK signing certificate
         run: |
           APK=$(find . -maxdepth 1 -name "FolkPatch-Release-*.apk" | head -1)
-          echo "RELEASE_SIGNATURE=$(unzip -p "$APK" META-INF/*.RSA 2>/dev/null | keytool -printcert 2>/dev/null | grep -m1 "SHA256:")"
-          echo "release cert: $(unzip -p "$APK" META-INF/*.RSA | keytool -printcert | grep -m1 'SHA256:')"
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | head -1 || true)
+          if [ -n "$APKSIGNER" ]; then
+            "$APKSIGNER" verify --print-certs "$APK" 2>&1 | sed 's/^/::notice::/'
+          else
+            echo "::notice::apksigner not found; listing META-INF"
+            unzip -l "$APK" 2>&1 | sed 's/^/::notice::/'
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
