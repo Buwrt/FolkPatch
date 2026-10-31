@@ -120,6 +120,9 @@
 
     <string name="super_key">超级密钥</string>
     <string name="clear_super_key">清除超级密钥</string>
+    <string name="superkey_manual_title">使用超级密钥</string>
+    <string name="superkey_manual_summary">输入修补 boot 时设置的超级密钥，无需重新刷机即可恢复 Root</string>
+    <string name="superkey_manual_invalid">该超级密钥未被内核接受</string>
     <string name="patch_set_superkey">设置超级密钥</string>
     <string name="home_patch_set_key_desc">KernelPatch 的唯一凭证</string>
     <string name="home_patch_next_step">下一步</string>

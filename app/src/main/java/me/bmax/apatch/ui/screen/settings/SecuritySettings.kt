@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -16,6 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import me.bmax.apatch.APApplication
+import me.bmax.apatch.Natives
 import me.bmax.apatch.R
 import me.bmax.apatch.ui.component.folk.FolkNavigationPreference
 import me.bmax.apatch.ui.component.folk.FolkSettingsGroup
@@ -104,6 +106,68 @@ fun SecuritySettingsContent(
             }
         }
     }
+    }
+
+    // Shown even when no root is available: if the kernel was patched with a
+    // custom SuperKey, entering it here restores root without re-flashing.
+    var showSuperKeyDialog by remember { mutableStateOf(false) }
+    var superKeyValue by remember { mutableStateOf("") }
+    var superKeyError by remember { mutableStateOf(false) }
+
+    FolkSettingsSection(title = stringResource(R.string.settings_section_security_key)) {
+        FolkSettingsGroup(flat = flat, highlightKey = highlightKey) {
+            item(key = "security_enter_superkey") {
+                FolkNavigationPreference(
+                    icon = Icons.Outlined.Key,
+                    title = stringResource(id = R.string.superkey_manual_title),
+                    summary = stringResource(id = R.string.superkey_manual_summary),
+                    onClick = {
+                        superKeyValue = ""
+                        superKeyError = false
+                        showSuperKeyDialog = true
+                    },
+                )
+            }
+        }
+    }
+
+    if (showSuperKeyDialog) {
+        AlertDialog(
+            onDismissRequest = { showSuperKeyDialog = false },
+            title = { Text(stringResource(id = R.string.superkey_manual_title)) },
+            text = {
+                OutlinedTextField(
+                    value = superKeyValue,
+                    onValueChange = { superKeyValue = it; superKeyError = false },
+                    label = { Text(stringResource(id = R.string.super_key)) },
+                    singleLine = true,
+                    isError = superKeyError,
+                    supportingText = if (superKeyError) {
+                        { Text(stringResource(id = R.string.superkey_manual_invalid)) }
+                    } else null,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val key = superKeyValue.trim()
+                    if (key.isEmpty()) {
+                        superKeyError = true
+                        return@TextButton
+                    }
+                    if (Natives.nativeReady(key)) {
+                        APApplication.setSuperKeyAndRefresh(key)
+                        showSuperKeyDialog = false
+                    } else {
+                        superKeyError = true
+                    }
+                }) { Text(stringResource(id = android.R.string.ok)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSuperKeyDialog = false }) {
+                    Text(stringResource(id = android.R.string.cancel))
+                }
+            },
+        )
     }
 
     if (kPatchReady) {

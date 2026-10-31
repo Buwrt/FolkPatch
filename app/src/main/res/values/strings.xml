@@ -128,6 +128,9 @@
 
     <string name="super_key">SuperKey</string>
     <string name="clear_super_key">Clear SuperKey</string>
+    <string name="superkey_manual_title">Use a SuperKey</string>
+    <string name="superkey_manual_summary">Enter the SuperKey set when the boot image was patched to restore root without re-flashing</string>
+    <string name="superkey_manual_invalid">That SuperKey was rejected by the kernel</string>
     <string name="patch_set_superkey">Set SuperKey</string>
     <string name="home_patch_set_key_desc">Only credential for KernelPatch</string>
     <string name="home_patch_next_step">Next step</string>
