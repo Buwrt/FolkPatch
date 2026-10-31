@@ -101,6 +101,24 @@ jobs:
       - name: Verify version
         run: ./gradlew printVersion --no-daemon
 
+      # Every build is signed with the keystore committed at the repo root, so
+      # the manager signature never changes. KernelPatch bakes that certificate
+      # into the patched boot image, so a changed signature is exactly what
+      # makes the manager report "cannot get root / not patched".
+      - name: Configure keystore
+        env:
+          KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          KS_PWD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KS_KEY_PWD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > ../folkpatch.jks
+            printf 'KEYSTORE_FILE=../folkpatch.jks\nKEYSTORE_PASSWORD=%s\nKEY_ALIAS=%s\nKEY_PASSWORD=%s\n' "$KS_PWD" "$KS_ALIAS" "$KS_KEY_PWD" > keystore.properties
+          else
+            printf 'KEYSTORE_FILE=../folkpatch.jks\nKEYSTORE_PASSWORD=folkpatch\nKEY_ALIAS=folkpatch\nKEY_PASSWORD=folkpatch\n' > keystore.properties
+          fi
+
       - name: Capture version code
         id: version
         run: |
@@ -156,7 +174,7 @@ jobs:
             echo "$KS_B64" | base64 -d > ../folkpatch.jks
             printf 'KEYSTORE_FILE=../folkpatch.jks\nKEYSTORE_PASSWORD=%s\nKEY_ALIAS=%s\nKEY_PASSWORD=%s\n' "$KS_PWD" "$KS_ALIAS" "$KS_KEY_PWD" > keystore.properties
           else
-            echo "::notice::No signing secret set; using the repository keystore."
+            printf 'KEYSTORE_FILE=../folkpatch.jks\nKEYSTORE_PASSWORD=folkpatch\nKEY_ALIAS=folkpatch\nKEY_PASSWORD=folkpatch\n' > keystore.properties
           fi
 
       - run: ./gradlew assembleRelease --no-daemon
