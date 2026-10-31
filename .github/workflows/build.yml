@@ -363,7 +363,18 @@ jobs:
 
           # Proof that the bundled modules really are inside the APK, not
           # fetched at runtime.
+          # Show the signing certificate of every APK: two builds signed alike can
+          # upgrade in place, because the patched boot image trusts one certificate.
+          SIGS=""
+          for APK in $FILES; do
+            SIG=$(unzip -p "$APK" META-INF/*.RSA 2>/dev/null | keytool -printcert 2>/dev/null | grep -m1 "SHA256:" | tr -d ' ')
+            SIGS="${SIGS}"$'\n'"- $(basename "$APK"): ${SIG:-unknown}"
+          done
+
           NOTES="Automated build of ${GITHUB_SHA}."
+          NOTES="${NOTES}"$'\n\n'"## Signing certificate"
+          NOTES="${NOTES}${SIGS}"
+          NOTES="${NOTES}"$'\n\n'"Both packages share this certificate; a boot image patched from any build stays valid for later builds."
           NOTES="${NOTES}"$'\n\n'"Bundled KPMs are embedded into every patched boot.img."
           NOTES="${NOTES}"$'\n\n'"## Bundled KPMs (inside the APK)"$'\n'"\`\`\`"
           for APK in $FILES; do
