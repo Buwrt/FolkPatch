@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.util.Log
 import com.topjohnwu.superuser.CallbackList
 import java.io.File
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Reads and writes Hide-My-Applist's config.json through a root shell.
@@ -36,17 +37,26 @@ object HmaConfigIo {
         add("/data/misc/hide_my_applist/config.json")
     }
 
+    /**
+     * Runs commands and returns their combined output.
+     *
+     * The shell writes stdout from its own thread while the caller is already
+     * iterating the result, so the buffer must be concurrent and the value
+     * handed back must be a snapshot. Returning the live list let the shell
+     * thread mutate it mid-iteration and crashed the caller with
+     * ConcurrentModificationException.
+     */
     private fun runShell(vararg commands: String): List<String> {
-        val out = ArrayList<String>()
+        val out = CopyOnWriteArrayList<String>()
         val sink = object : CallbackList<String?>() {
             override fun onAddElement(s: String?) { s?.let(out::add) }
         }
         return try {
             withNewRootShell { newJob().add(*commands).to(sink, sink).exec() }
-            out
+            ArrayList(out)
         } catch (e: Exception) {
             Log.e(TAG, "shell failed", e)
-            out + listOf("shell error: ${e.message}")
+            ArrayList(out) + listOf("shell error: ${e.message}")
         }
     }
 
@@ -111,11 +121,17 @@ object HmaConfigIo {
     }
 
     /**
-     * Writes the config back to [path].
+     * Writes the config back to [path], trying three independent methods.
      *
-     * The owner is taken from the HMA data dir rather than hardcoded and the
-     * mode is restored to 600, otherwise a root-owned copy would leave HMA
-     * unable to read its own file.
+     * Reading works but writing did not, which points at the staging step: the
+     * config is written into this app's private dir first, and if the root
+     * shell cannot read that dir (SELinux rather than DAC) both copy methods
+     * fail for the same reason. So the third method stops touching the file
+     * system entirely and streams the payload through the shell as base64
+     * chunks, which only needs permission to create the target.
+     *
+     * Every method is verified by byte count before it is accepted, and each
+     * step is reported so a failure can be read rather than guessed at.
      */
     fun write(
         context: Context,
@@ -123,23 +139,91 @@ object HmaConfigIo {
         path: String,
         onLine: (String) -> Unit,
     ): Boolean {
-        val staged = File(context.filesDir, "hma_config.json").apply {
-            writeText(config.toJson())
-        }
+        val payload = config.toJson()
+        val expected = payload.toByteArray(Charsets.UTF_8).size
         val dir = path.substringBeforeLast("/")
-        val lines = runShell(
-            "mkdir -p \"$dir\"",
-            "[ -f \"$path\" ] && cp -f \"$path\" \"$path.bak\" || true",
-            "cp -f ${staged.absolutePath} \"$path\"",
-            "uid=\$(stat -c %u /data/data/\$(ls /data/data | grep -E 'hidemyapplist|hma_oss' | head -1) 2>/dev/null)",
-            "[ -n \"\$uid\" ] && chown \$uid \"$path\" || true",
-            "chmod 600 \"$path\"",
-            "ls -l \"$path\"",
-        )
-        lines.forEach(onLine)
-        val ok = lines.any { it.contains(path.substringAfterLast("/")) && it.startsWith("-") }
-        if (!ok) onLine("failed to write $path")
-        else onLine("config.json updated")
+
+        onLine("target: $path")
+        onLine("payload: $expected bytes")
+        onLine("--- before ---")
+        runShell(
+            "id -u",
+            "getenforce 2>&1",
+            "ls -ld \"$dir\" 2>&1",
+            "ls -l \"$path\" 2>&1",
+            "stat -c '%s bytes uid=%u gid=%g mode=%a ctx=%C' \"$path\" 2>&1",
+        ).forEach(onLine)
+
+        runShell("[ -f \"$path\" ] && cp -f \"$path\" \"$path.bak\" 2>&1 || echo 'no existing file to back up'")
+            .forEach(onLine)
+
+        val methods = mutableListOf<Pair<String, () -> List<String>>>()
+
+        // Method 1: copy from the app's private dir.
+        val staged = File(context.filesDir, "hma_config.json")
+        methods += "copy from ${staged.absolutePath}" to {
+            staged.writeText(payload, Charsets.UTF_8)
+            staged.setReadable(true, false)
+            staged.setWritable(true, false)
+            runShell(
+                "ls -l ${staged.absolutePath} 2>&1",
+                "cp -f ${staged.absolutePath} \"$path\" 2>&1",
+            )
+        }
+
+        // Method 2: redirect the same file into the target.
+        methods += "redirect from ${staged.absolutePath}" to {
+            runShell("cat ${staged.absolutePath} > \"$path\" 2>&1")
+        }
+
+        // Method 3: stream base64 through the shell, no source file needed.
+        methods += "base64 stream" to {
+            val b64 = android.util.Base64.encodeToString(
+                payload.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP
+            )
+            val out = ArrayList<String>()
+            out += runShell("rm -f \"$path\" 2>&1")
+            b64.chunked(4096).forEach { chunk ->
+                out += runShell("printf '%s' '$chunk' | base64 -d >> \"$path\" 2>&1")
+            }
+            out
+        }
+
+        var written = false
+        for ((name, attempt) in methods) {
+            onLine("--- method: $name ---")
+            runCatching { attempt().forEach(onLine) }
+                .onFailure { onLine("threw: ${it.message}") }
+
+            val size = runShell("stat -c %s \"$path\" 2>&1")
+                .firstOrNull()?.trim()?.toIntOrNull() ?: -1
+            if (size == expected) {
+                written = true
+                onLine("OK: $size bytes matches payload")
+                break
+            }
+            onLine("FAILED: got $size bytes, wanted $expected")
+        }
+
+        if (!written) {
+            onLine("all three write methods failed")
+            return false
+        }
+
+        // Restore ownership and mode so HMA can still read its own file.
+        onLine("--- fix ownership ---")
+        runShell(
+            "uid=\$(stat -c %u \"$dir\" 2>/dev/null)",
+            "echo uid=\$uid",
+            "chown \$uid \"$path\" 2>&1",
+            "chmod 600 \"$path\" 2>&1",
+            "stat -c '%s bytes uid=%u mode=%a ctx=%C' \"$path\" 2>&1",
+        ).forEach(onLine)
+
+        val finalSize = runShell("stat -c %s \"$path\" 2>&1")
+            .firstOrNull()?.trim()?.toIntOrNull()
+        val ok = finalSize == expected
+        onLine(if (ok) "config.json updated" else "size changed after chown: $finalSize")
         return ok
     }
 

@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -78,6 +79,15 @@ class WebUIActivity : AppCompatActivity() {
     private var isWebViewReady by mutableStateOf(false)
     private var isInsetsEnabled by mutableStateOf(false)
     private var currentInsets by mutableStateOf(Insets(0, 0, 0, 0))
+    private var suFilePathHandler: SuFilePathHandler? = null
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Release the root shell held by the webroot file handler, otherwise
+        // every opened WebUI leaks a root shell process.
+        suFilePathHandler?.close()
+        suFilePathHandler = null
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
 
@@ -278,6 +288,29 @@ class WebUIActivity : AppCompatActivity() {
 
             val webRoot = File("/data/adb/modules/${moduleId}/webroot")
 
+            // Opening the handler starts a root shell, which can take a while (or
+            // fail). Do it off the main thread so a slow su never freezes the UI,
+            // and bail out with a message instead of crashing the activity.
+            val pathHandler = try {
+                withContext(Dispatchers.IO) {
+                    SuFilePathHandler(
+                        this@WebUIActivity,
+                        webRoot,
+                        { currentInsets },
+                        { enable -> isInsetsEnabled = enable }
+                    )
+                }
+            } catch (e: Throwable) {
+                Log.e("WebUIActivity", "Unable to open the WebUI for $moduleId", e)
+                android.widget.Toast.makeText(
+                    this@WebUIActivity,
+                    getString(R.string.webui_root_shell_unavailable),
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+                finish()
+                return
+            }
+
             val newWebView = WebView(this@WebUIActivity).apply {
                 setBackgroundColor(android.graphics.Color.TRANSPARENT)
 
@@ -289,12 +322,11 @@ class WebUIActivity : AppCompatActivity() {
                     .setDomain("mui.kernelsu.org")
                     .addPathHandler(
                         "/",
-                        SuFilePathHandler(
-                            this@WebUIActivity,
-                            webRoot,
-                            { currentInsets },
-                            { enable -> isInsetsEnabled = enable }
-                        )
+                        pathHandler.also {
+                            // A re-created WebView must not orphan the previous shell.
+                            suFilePathHandler?.close()
+                            suFilePathHandler = it
+                        }
                     )
                     .build()
 

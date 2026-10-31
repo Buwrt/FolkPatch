@@ -1,9 +1,9 @@
 <div align="center">
 <img src="logo.png" width="180" alt="FolkPatch logo">
 
-[![Latest Release](https://img.shields.io/github/v/release/LyraVoid/FolkPatch?label=Release&logo=github)](https://github.com/LyraVoid/FolkPatch/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/release/Buwrt/FolkPatch?label=Release&logo=github)](https://github.com/Buwrt/FolkPatch/releases/latest)
 [![Telegram](https://img.shields.io/badge/Telegram-FolkPatch-blue?logo=telegram)](https://t.me/FolkPatch)
-[![License](https://img.shields.io/github/license/LyraVoid/FolkPatch?logo=gnu)](/LICENSE)
+[![License](https://img.shields.io/github/license/Buwrt/FolkPatch?logo=gnu)](/LICENSE)
 
 </div>
 
@@ -86,7 +86,7 @@ English and Chinese are the reference languages. Translation corrections should 
 
 ## Download and Installation
 
-1. Download the latest package from the [Releases page](https://github.com/LyraVoid/FolkPatch/releases/latest).
+1. Download the latest package from the [Releases page](https://github.com/Buwrt/FolkPatch/releases/latest).
 2. Install the package on the Android device.
 3. Follow the in-app setup flow and read the [documentation](https://fp.mysqil.com/) before installing modules or enabling runtime controls.
 

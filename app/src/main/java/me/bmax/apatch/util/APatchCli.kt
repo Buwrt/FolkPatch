@@ -196,17 +196,35 @@ internal fun createRootShellSafe(globalMnt: Boolean = false): Shell {
     }
 }
 
+private const val STRICT_ROOT_SHELL_ATTEMPTS = 3
+private const val STRICT_ROOT_SHELL_RETRY_DELAY_MS = 400L
+
 internal fun createRootShellStrict(
     globalMnt: Boolean = false,
     reason: String = "unknown"
 ): Shell {
-    return try {
-        ensureRootShell(createRootShell(globalMnt), reason)
-    } catch (primaryError: Throwable) {
-        Log.e(TAG, "Strict root shell creation failed for $reason", primaryError)
-        val fallback = createRootShellSafe(globalMnt)
-        ensureRootShell(fallback, reason)
+    // KernelPatch occasionally hands back a plain (non-root) shell on the first
+    // attempt, e.g. when several shells are started at the same time or the su
+    // call is slow. Retrying is cheap and turns a whole class of "no root shell"
+    // crashes into a short delay.
+    var lastError: Throwable? = null
+    repeat(STRICT_ROOT_SHELL_ATTEMPTS) { attempt ->
+        try {
+            return ensureRootShell(createRootShell(globalMnt), reason)
+        } catch (e: Throwable) {
+            lastError = e
+            Log.e(TAG, "Root shell attempt ${attempt + 1} failed for $reason", e)
+            if (attempt + 1 < STRICT_ROOT_SHELL_ATTEMPTS) {
+                try {
+                    Thread.sleep(STRICT_ROOT_SHELL_RETRY_DELAY_MS)
+                } catch (_: Throwable) {
+                }
+            }
+        }
     }
+    Log.e(TAG, "Strict root shell creation failed for $reason", lastError)
+    val fallback = createRootShellSafe(globalMnt)
+    return ensureRootShell(fallback, reason)
 }
 
 fun getRootShell(globalMnt: Boolean = false): Shell {

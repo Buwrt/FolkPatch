@@ -18,6 +18,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.GZIPInputStream;
 
 import me.bmax.apatch.util.APatchCliKt;
@@ -63,6 +64,14 @@ public final class SuFilePathHandler implements WebViewAssetLoader.PathHandler {
     private final File mDirectory;
 
     private final Shell mShell;
+
+    /**
+     * Set once {@link #close()} has released the root shell. Guarding with an
+     * {@link AtomicBoolean} keeps concurrent {@link #handle} calls racing with
+     * close from ever observing a half-closed shell.
+     */
+    private final AtomicBoolean mClosed = new AtomicBoolean(false);
+
     private final InsetsSupplier mInsetsSupplier;
     private final OnInsetsRequestedListener mOnInsetsRequestedListener;
 
@@ -108,7 +117,20 @@ public final class SuFilePathHandler implements WebViewAssetLoader.PathHandler {
                 throw new IllegalArgumentException("The given directory \"" + directory
                         + "\" doesn't exist under an allowed app internal storage directory");
             }
-            mShell = APatchCliKt.createRootShellStrict(true, "WebUI static asset loader");
+            Shell shell;
+            try {
+                shell = APatchCliKt.createRootShellStrict(true, "WebUI static asset loader");
+            } catch (Exception mountMasterError) {
+                // A mount-master shell is convenient but not required: reading the
+                // module's webroot only needs a root shell with access to /data/adb.
+                // Fall back instead of failing the whole WebUI.
+                android.util.Log.w(
+                        "SuFilePathHandler",
+                        "mount-master root shell unavailable, retrying without it",
+                        mountMasterError);
+                shell = APatchCliKt.createRootShellStrict(false, "WebUI static asset loader");
+            }
+            mShell = shell;
         } catch (Exception e) {
             throw new IllegalArgumentException(
                     "Failed to initialize root-backed WebUI path handler for directory: "
@@ -125,6 +147,26 @@ public final class SuFilePathHandler implements WebViewAssetLoader.PathHandler {
             }
         }
         return true;
+    }
+
+    /**
+     * Releases the root shell held by this handler. Must be called when the hosting
+     * WebView/Activity is destroyed, otherwise every opened WebUI leaks one root shell
+     * process.
+     * <p>
+     * Idempotent and thread-safe: concurrent {@link #handle} calls racing with close only
+     * observe an {@link IOException} (surfaced as 404), never a crash. After close,
+     * {@link #handle} keeps answering 404.
+     */
+    public void close() {
+        if (!mClosed.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            mShell.close();
+        } catch (IOException ignored) {
+            // Best-effort: the shell is being torn down anyway.
+        }
     }
 
     /**
@@ -150,6 +192,11 @@ public final class SuFilePathHandler implements WebViewAssetLoader.PathHandler {
     @WorkerThread
     @NonNull
     public WebResourceResponse handle(@NonNull String path) {
+        if (mClosed.get()) {
+            // The shell is gone; report the asset as missing instead of failing on
+            // a closed shell.
+            return new WebResourceResponse(null, null, null);
+        }
         if ("internal/insets.css".equals(path)) {
             if (mOnInsetsRequestedListener != null) {
                 mOnInsetsRequestedListener.onInsetsRequested(true);

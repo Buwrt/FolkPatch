@@ -1,9 +1,9 @@
 <div align="center">
 <img src="logo.png" width="180" alt="FolkPatch logo">
 
-[![Latest Release](https://img.shields.io/github/v/release/LyraVoid/FolkPatch?label=Release&logo=github)](https://github.com/LyraVoid/FolkPatch/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/release/Buwrt/FolkPatch?label=Release&logo=github)](https://github.com/Buwrt/FolkPatch/releases/latest)
 [![Telegram](https://img.shields.io/badge/Telegram-FolkPatch-blue?logo=telegram)](https://t.me/FolkPatch)
-[![License](https://img.shields.io/github/license/LyraVoid/FolkPatch?logo=gnu)](/LICENSE)
+[![License](https://img.shields.io/github/license/Buwrt/FolkPatch?logo=gnu)](/LICENSE)
 
 </div>
 
@@ -86,7 +86,7 @@ SuperKey 的权限高于普通 Root 会话。弱密钥或已泄露的密钥可�
 
 ## 下载与安装
 
-1. 从[发布页面](https://github.com/LyraVoid/FolkPatch/releases/latest)下载最新安装包。
+1. 从[发布页面](https://github.com/Buwrt/FolkPatch/releases/latest)下载最新安装包。
 2. 在 Android 设备上安装该包。
 3. 按应用内引导完成部署，并在安装模块或启用运行时控制前阅读[文档](https://fp.mysqil.com/)。
 

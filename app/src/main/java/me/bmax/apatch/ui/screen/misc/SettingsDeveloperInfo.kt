@@ -48,7 +48,7 @@ fun DeveloperInfo(
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
-    val githubUrl = "https://github.com/LyraVoid/FolkPatch"
+    val githubUrl = "https://github.com/Buwrt/FolkPatch"
     val telegramUrl = "https://t.me/FolkPatch"
     val sociabuzzUrl = "https://ifdian.net/a/matsuzaka_yuki"
 

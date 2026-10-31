@@ -87,6 +87,8 @@ jobs:
     needs: prepare
     if: needs.prepare.outputs.build_debug == 'true'
     runs-on: ubuntu-latest
+    outputs:
+      version_code: ${{ steps.version.outputs.code }}
 
     steps:
       - uses: actions/checkout@v5
@@ -98,6 +100,12 @@ jobs:
 
       - name: Verify version
         run: ./gradlew printVersion --no-daemon
+
+      - name: Capture version code
+        id: version
+        run: |
+          VC=$(./gradlew printVersion --no-daemon | grep -m1 "Version code:" | grep -oE '[0-9]+' | head -1)
+          echo "code=${VC:-0}" >> "$GITHUB_OUTPUT"
 
       - run: ./gradlew assembleDebug --no-daemon
 
@@ -133,18 +141,36 @@ jobs:
       - name: Verify version
         run: ./gradlew printVersion --no-daemon
 
+      # No signing secret is configured on this fork, so generate a throwaway
+      # keystore instead of feeding an empty file to the release build.
       - name: Decode keystore
+        env:
+          KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          KS_PWD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KS_KEY_PWD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > FolkPatch.jks
-
-      - name: Create keystore.properties
-        run: |
-          cat > keystore.properties << 'EOF'
+          if [ -z "$KS_B64" ]; then
+            echo "::notice::KEYSTORE_BASE64 is not set; signing the release build with a generated keystore."
+            keytool -genkeypair -v -keystore FolkPatch.jks -storetype JKS \
+              -keyalg RSA -keysize 2048 -validity 10950 \
+              -alias androiddebugkey -storepass android -keypass android \
+              -dname "CN=FolkPatch, OU=FolkPatch, O=FolkPatch, L=Unknown, ST=Unknown, C=US"
+            cat > keystore.properties << 'EOF'
           KEYSTORE_FILE=../FolkPatch.jks
-          KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS=${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}
+          KEYSTORE_PASSWORD=android
+          KEY_ALIAS=androiddebugkey
+          KEY_PASSWORD=android
           EOF
+          else
+            echo "$KS_B64" | base64 -d > FolkPatch.jks
+            cat > keystore.properties << EOF
+          KEYSTORE_FILE=../FolkPatch.jks
+          KEYSTORE_PASSWORD=$KS_PWD
+          KEY_ALIAS=$KS_ALIAS
+          KEY_PASSWORD=$KS_KEY_PWD
+          EOF
+          fi
 
       - run: ./gradlew assembleRelease --no-daemon
 
@@ -259,7 +285,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           SHORT="${GITHUB_SHA::7}"
-          TAG="build-${SHORT}"
+          VC="${{ needs.build_debug.outputs.version_code }}"
+          # Tag with the version code so the in-app update check can compare it
+          # against BuildConfig.VERSION_CODE.
+          if [ -n "$VC" ] && [ "$VC" != "0" ]; then TAG="v${VC}"; else TAG="build-${SHORT}"; fi
           FILES=$(find artifacts -type f -name "*.apk" | sort)
           [ -z "$FILES" ] && { echo "::error::no apk found"; exit 1; }
 
@@ -277,5 +306,5 @@ jobs:
           gh release create "$TAG" $FILES \
             --repo "${{ github.repository }}" \
             --target "${{ github.sha }}" \
-            --title "FolkPatch ${SHORT}" \
+            --title "FolkPatch ${VC:-$SHORT}" \
             --notes "$NOTES"

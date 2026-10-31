@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
@@ -29,6 +30,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -146,6 +150,9 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
             withContext(Dispatchers.Main.immediate) {
                 log = lines.joinToString("\n")
                 busy = false
+                if (!ok) {
+                    log = lines.joinToString("\n") + "\n---- env ----\n" + HmaConfigIo.diagnose()
+                }
                 showToast(
                     context,
                     context.getString(if (ok) R.string.hma_saved else R.string.hma_failed)
@@ -324,6 +331,23 @@ fun AppHideListScreen(navigator: DestinationsNavigator) {
                         .verticalScroll(rememberScrollState())
                         .padding(vertical = 8.dp),
                 )
+                OutlinedButton(
+                    onClick = {
+                        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE)
+                            as? ClipboardManager
+                        cm?.setPrimaryClip(ClipData.newPlainText("hma log", log))
+                        showToast(context, context.getString(R.string.hma_log_copied))
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                ) {
+                    Icon(Icons.Filled.Code, contentDescription = null)
+                    Text(
+                        text = stringResource(R.string.hma_copy_log),
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
             }
         }
     }

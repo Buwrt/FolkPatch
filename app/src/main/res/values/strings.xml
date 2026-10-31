@@ -309,6 +309,7 @@
 
 
     <string name="apm_webui_open">Open</string>
+    <string name="webui_root_shell_unavailable">Could not get root access to open this WebUI. Reboot and try again.</string>
     <string name="apm_action">Action</string>
     <string name="module_shortcut_add">Shortcut</string>
     <string name="module_shortcut_not_supported">Launcher does not support desktop shortcuts.</string>
@@ -1575,4 +1576,6 @@ Here are some possible reasons for authentication failure—please check which o
     <string name="hma_black_hint">勾选的应用会被隐藏</string>
     <string name="hma_white_hint">勾选的应用即使命中黑名单也不隐藏，优先级最高</string>
     <string name="hma_white_empty">白名单为空，搜索应用可添加豁免</string>
+    <string name="hma_copy_log">Copy log</string>
+    <string name="hma_log_copied">Log copied to clipboard</string>
 </resources>
