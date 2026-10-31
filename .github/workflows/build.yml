@@ -151,11 +151,12 @@ jobs:
           KS_KEY_PWD: ${{ secrets.KEY_PASSWORD }}
         run: |
           if [ -z "$KS_B64" ]; then
-            echo "::notice::KEYSTORE_BASE64 is not set; signing the release build with a generated keystore."
-            keytool -genkeypair -v -keystore FolkPatch.jks -storetype JKS \
-              -keyalg RSA -keysize 2048 -validity 10950 \
-              -alias androiddebugkey -storepass android -keypass android \
-              -dname "CN=FolkPatch, OU=FolkPatch, O=FolkPatch, L=Unknown, ST=Unknown, C=US"
+            # Sign with the keystore committed in ci/release-keystore.jks. Signing
+            # every build with the same key is what lets users upgrade in place:
+            # a freshly generated keystore per run changes the signature and
+            # forces an uninstall, which wipes the saved SuperKey.
+            echo "::notice::KEYSTORE_BASE64 is not set; signing with the repository keystore."
+            cp ci/release-keystore.jks FolkPatch.jks
             cat > keystore.properties << 'EOF'
           KEYSTORE_FILE=../FolkPatch.jks
           KEYSTORE_PASSWORD=android
