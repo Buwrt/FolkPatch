@@ -1,7 +1,5 @@
 package me.bmax.apatch.ui.screen.patches
 
-import java.io.File
-
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
@@ -349,18 +347,6 @@ private fun SelectInstallMethod(
                     .widthIn(max = 720.dp)
                     .padding(horizontal = 16.dp, vertical = 4.dp),
             )
-            // A/B devices reboot into the other slot often enough that a
-            // single-slot flash is the most common "still not installed" cause.
-            val slot = remember { currentBootSlot() }
-            if (slot != null) {
-                InstallStatusItem(
-                    text = stringResource(R.string.install_slot_hint, slot),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .widthIn(max = 720.dp)
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                )
-            }
         }
         Column(
             modifier = Modifier
@@ -491,19 +477,6 @@ private fun SelectInstallMethod(
 }
 
 @Composable
-/**
- * The slot the device booted from, read from /proc/cmdline so it works without
- * root. Null when the device has no A/B slots.
- */
-private fun currentBootSlot(): String? {
-    return try {
-        val cmdline = File("/proc/cmdline").readText()
-        Regex("androidboot\\.slot_suffix=([^\\s]+)").find(cmdline)?.groupValues?.getOrNull(1)
-    } catch (_: Throwable) {
-        null
-    }
-}
-
 private fun InstallStatusItem(
     text: String,
     modifier: Modifier = Modifier,
