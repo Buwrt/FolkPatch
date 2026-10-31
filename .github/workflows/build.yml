@@ -101,10 +101,13 @@ jobs:
       - name: Verify version
         run: ./gradlew printVersion --no-daemon
 
-      # Every build is signed with the keystore committed at the repo root, so
-      # the manager signature never changes. KernelPatch bakes that certificate
-      # into the patched boot image, so a changed signature is exactly what
-      # makes the manager report "cannot get root / not patched".
+      # Sign every build with the keystore committed at the repo root. KernelPatch
+      # bakes the manager certificate into the patched boot image, so a signature
+      # that changes between builds makes the manager report "not patched" even
+      # though the boot image is patched. The keystore uses the standard debug
+      # identity (alias androiddebugkey, password android) so the debug build
+      # picks it up from ~/.android and the release build reads it through
+      # keystore.properties.
       - name: Configure keystore
         env:
           KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -113,11 +116,23 @@ jobs:
           KS_KEY_PWD: ${{ secrets.KEY_PASSWORD }}
         run: |
           if [ -n "$KS_B64" ]; then
-            echo "$KS_B64" | base64 -d > ../folkpatch.jks
-            printf 'KEYSTORE_FILE=../folkpatch.jks\nKEYSTORE_PASSWORD=%s\nKEY_ALIAS=%s\nKEY_PASSWORD=%s\n' "$KS_PWD" "$KS_ALIAS" "$KS_KEY_PWD" > keystore.properties
+            echo "$KS_B64" | base64 -d > folkpatch.jks
+            {
+              echo "KEYSTORE_FILE=../folkpatch.jks"
+              echo "KEYSTORE_PASSWORD=$KS_PWD"
+              echo "KEY_ALIAS=$KS_ALIAS"
+              echo "KEY_PASSWORD=$KS_KEY_PWD"
+            } > keystore.properties
           else
-            printf 'KEYSTORE_FILE=../folkpatch.jks\nKEYSTORE_PASSWORD=folkpatch\nKEY_ALIAS=folkpatch\nKEY_PASSWORD=folkpatch\n' > keystore.properties
+            {
+              echo "KEYSTORE_FILE=../folkpatch.jks"
+              echo "KEYSTORE_PASSWORD=android"
+              echo "KEY_ALIAS=androiddebugkey"
+              echo "KEY_PASSWORD=android"
+            } > keystore.properties
           fi
+          mkdir -p "$HOME/.android"
+          cp folkpatch.jks "$HOME/.android/debug.keystore"
 
       - name: Capture version code
         id: version
@@ -129,13 +144,12 @@ jobs:
         run: |
           set -o pipefail
           ./gradlew assembleDebug --no-daemon 2>&1 | tee gradle-build.log
+
       - name: Show Gradle failure
         if: failure()
         run: |
-          echo "----- last Gradle output -----"
-          tail -200 gradle-build.log || true
-          echo "----- error lines -----"
-          grep -nE "^e: |^w: .*error|FAILED|Execution failed|What went wrong|Caused by|\* Exception" gradle-build.log | head -40 || true
+          grep -nE "^e: |FAILED|Execution failed|What went wrong|Caused by" gradle-build.log | head -25 | cut -c1-400 | sed 's/^/::error::/' || true
+          tail -50 gradle-build.log | cut -c1-300 | sed 's/^/::error::/' || true
 
 
       - name: Run unit tests
@@ -170,10 +184,15 @@ jobs:
       - name: Verify version
         run: ./gradlew printVersion --no-daemon
 
-      # Every build is signed with the keystore committed at the repo root, so
-      # the manager signature never changes. KernelPatch bakes that certificate
-      # into the patched boot image, so a changed signature is exactly what
-      # makes the manager report "cannot get root / not patched".
+      # No signing secret is configured on this fork, so generate a throwaway
+      # keystore instead of feeding an empty file to the release build.
+      # Sign every build with the keystore committed at the repo root. KernelPatch
+      # bakes the manager certificate into the patched boot image, so a signature
+      # that changes between builds makes the manager report "not patched" even
+      # though the boot image is patched. The keystore uses the standard debug
+      # identity (alias androiddebugkey, password android) so the debug build
+      # picks it up from ~/.android and the release build reads it through
+      # keystore.properties.
       - name: Configure keystore
         env:
           KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -182,24 +201,36 @@ jobs:
           KS_KEY_PWD: ${{ secrets.KEY_PASSWORD }}
         run: |
           if [ -n "$KS_B64" ]; then
-            echo "$KS_B64" | base64 -d > ../folkpatch.jks
-            printf 'KEYSTORE_FILE=../folkpatch.jks\nKEYSTORE_PASSWORD=%s\nKEY_ALIAS=%s\nKEY_PASSWORD=%s\n' "$KS_PWD" "$KS_ALIAS" "$KS_KEY_PWD" > keystore.properties
+            echo "$KS_B64" | base64 -d > folkpatch.jks
+            {
+              echo "KEYSTORE_FILE=../folkpatch.jks"
+              echo "KEYSTORE_PASSWORD=$KS_PWD"
+              echo "KEY_ALIAS=$KS_ALIAS"
+              echo "KEY_PASSWORD=$KS_KEY_PWD"
+            } > keystore.properties
           else
-            printf 'KEYSTORE_FILE=../folkpatch.jks\nKEYSTORE_PASSWORD=folkpatch\nKEY_ALIAS=folkpatch\nKEY_PASSWORD=folkpatch\n' > keystore.properties
+            {
+              echo "KEYSTORE_FILE=../folkpatch.jks"
+              echo "KEYSTORE_PASSWORD=android"
+              echo "KEY_ALIAS=androiddebugkey"
+              echo "KEY_PASSWORD=android"
+            } > keystore.properties
           fi
+          mkdir -p "$HOME/.android"
+          cp folkpatch.jks "$HOME/.android/debug.keystore"
 
       - name: Assemble release
         run: |
           set -o pipefail
           ./gradlew assembleRelease --no-daemon 2>&1 | tee gradle-build.log
+
       - name: Show Gradle failure
         if: failure()
         run: |
-          echo "----- last Gradle output -----"
-          tail -200 gradle-build.log || true
-          echo "----- error lines -----"
-          grep -nE "^e: |^w: .*error|FAILED|Execution failed|What went wrong|Caused by|\* Exception" gradle-build.log | head -40 || true
+          grep -nE "^e: |FAILED|Execution failed|What went wrong|Caused by" gradle-build.log | head -25 | cut -c1-400 | sed 's/^/::error::/' || true
+          tail -50 gradle-build.log | cut -c1-300 | sed 's/^/::error::/' || true
 
+      - run: ./gradlew assembleRelease --no-daemon
 
       - name: Debug APK location
         run: find app/build/outputs -name "*.apk" -type f || echo "No APK found"
