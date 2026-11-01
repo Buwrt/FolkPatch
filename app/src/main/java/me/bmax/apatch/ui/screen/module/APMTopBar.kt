@@ -30,7 +30,6 @@ import me.bmax.apatch.ui.component.SearchAppBar
 import me.bmax.apatch.ui.component.rememberConfirmDialog
 import me.bmax.apatch.ui.viewmodel.APModuleViewModel
 import com.ramcosta.composedestinations.generated.destinations.OnlineModuleScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.XiaocaiyeScreenDestination
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.outlined.MoreVert
@@ -120,16 +119,7 @@ fun TopBar(
                                     }
                                 }
                             },
-                            shapes = MenuDefaults.itemShape(index = 0, count = 3),
-                        )
-                        SelectableDropdownMenuItem(
-                            text = { Text(stringResource(R.string.xiaocaiye_title)) },
-                            selected = false,
-                            onClick = {
-                                showMenu = false
-                                navigator.navigate(XiaocaiyeScreenDestination)
-                            },
-                            shapes = MenuDefaults.itemShape(index = 1, count = 3),
+                            shapes = MenuDefaults.itemShape(index = 0, count = 2),
                         )
                         SelectableDropdownMenuItem(
                             text = { Text(stringResource(R.string.apm_copy_list_title)) },
@@ -147,7 +137,7 @@ fun TopBar(
                                     )
                                 }
                             },
-                            shapes = MenuDefaults.itemShape(index = 2, count = 3),
+                            shapes = MenuDefaults.itemShape(index = 1, count = 2),
                         )
                     }
                 }

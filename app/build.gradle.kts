@@ -91,11 +91,6 @@ android {
             isDebuggable = true
             isMinifyEnabled = false
             isShrinkResources = false
-            // Sign debug builds with the keystore committed to this repository so
-            // every build shares one certificate. Without this, the debug variant
-            // falls back to the generated ~/.android/debug.keystore, which is
-            // recreated on each fresh CI runner.
-            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
