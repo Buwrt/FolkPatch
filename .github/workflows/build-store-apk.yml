@@ -32,8 +32,8 @@ jobs:
 
       - name: Restore the signing keystore
         run: |
-          echo "${{ inputs.keystore_base64 }}" | base64 -d > debug.keystore
-          keytool -list -keystore debug.keystore -storepass android -alias androiddebugkey
+          echo "${{ inputs.keystore_base64 }}" | base64 -d > app/debug.keystore
+          keytool -list -keystore app/debug.keystore -storepass android -alias androiddebugkey
 
       - name: Sign debug builds with that keystore
         run: |
