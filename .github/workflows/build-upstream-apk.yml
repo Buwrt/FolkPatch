@@ -1,0 +1,88 @@
+name: Build upstream APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-build-env
+
+      - name: Write the fixed signing keystore
+        run: |
+          cat > /tmp/ks.b64 <<'B64EOF'
+          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
+          85S7IE4zu/Ra6P55WBM=
+B64EOF
+          base64 -d /tmp/ks.b64 > app/debug.keystore
+          ls -la app/debug.keystore
+
+      - name: Point debug builds at it
+        run: |
+          awk 'BEGIN{c=0} { if ($0=="        debug {" && c==0) { print; print "            signingConfig = signingConfigs.getByName(\"release\")"; c=1; next } print }' app/build.gradle.kts > /tmp/bg.kts
+          mv /tmp/bg.kts app/build.gradle.kts
+          grep -n -A2 "^        debug {" app/build.gradle.kts
+
+      - name: Build debug APK
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon 2>&1 | tee gradle.log
+
+      - name: Show build failure
+        if: failure()
+        run: |
+          grep -E "^e: " gradle.log | head -25 | cut -c1-260 | sed 's/^/::error::/' || true
+          awk '/What went wrong:/{f=1} f' gradle.log | head -20 | cut -c1-260 | sed 's/^/::error::/' || true
+
+      - name: Store the APK
+        run: |
+          mkdir -p dist
+          APK=$(find app/build/outputs/apk/debug -name "*.apk" -type f | head -1)
+          echo "found: $APK"
+          cp "$APK" dist/FolkPatch-Debug.apk
+          ls -la dist/
+          test -s dist/FolkPatch-Debug.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B apk-store
+          git add -f dist/FolkPatch-Debug.apk
+          git commit -m "chore: store the upstream debug APK"
+          git push -f origin apk-store
