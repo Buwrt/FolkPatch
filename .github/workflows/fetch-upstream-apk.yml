@@ -1,0 +1,30 @@
+name: Fetch upstream APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download the upstream APK
+        run: |
+          mkdir -p dist
+          curl -sSL -o dist/FolkPatch_115404_0f3f42ba_on_main-release.apk \
+            "https://github.com/LyraVoid/FolkPatch/releases/download/115404/FolkPatch_115404_0f3f42ba_on_main-release.apk"
+          ls -la dist/
+          test -s dist/FolkPatch_115404_0f3f42ba_on_main-release.apk
+
+      - name: Commit the APK
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B apk-store
+          git add -f dist/FolkPatch_115404_0f3f42ba_on_main-release.apk
+          git commit -m "chore: store the upstream 115404 APK"
+          git push -f origin apk-store
