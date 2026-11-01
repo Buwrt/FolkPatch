@@ -18,7 +18,7 @@ use rustix::{
 };
 
 use crate::{
-    defs::{DISABLE_FILE_NAME, MODULE_DIR, REMOVE_FILE_NAME, SKIP_MOUNT_FILE_NAME},
+    defs::{DISABLE_FILE_NAME, MODULE_DIR, SKIP_MOUNT_FILE_NAME},
     magic_mount::NodeFileType::{Directory, RegularFile, Symlink, Whiteout},
     restorecon::{lgetfilecon, lsetfilecon},
     utils::{ensure_dir_exists, get_magic_mount_work_dir},
@@ -154,13 +154,8 @@ fn collect_module_files() -> Result<Option<Node>> {
             continue;
         }
 
-        // Mirrors module.rs::foreach_module(ModuleType::Active). The remove
-        // marker matters because prune_modules() only warns when
-        // remove_dir_all() fails: without this check a leftover directory keeps
-        // mounting on every boot after the UI already reported it uninstalled.
         if entry.path().join(DISABLE_FILE_NAME).exists()
             || entry.path().join(SKIP_MOUNT_FILE_NAME).exists()
-            || entry.path().join(REMOVE_FILE_NAME).exists()
         {
             continue;
         }

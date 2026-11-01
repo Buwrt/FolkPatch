@@ -238,6 +238,10 @@ kotlin {
     jvmToolchain(21)
     compilerOptions {
         jvmTarget = JvmTarget.JVM_21
+        freeCompilerArgs.addAll(
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3ExpressiveApi",
+        )
     }
 }
 
@@ -346,26 +350,6 @@ registerDownloadTask(
     version = kernelPatchVersion,
     localArtifact = "kptools-android"
 )
-
-// KPMs bundled into every patched boot.img. Keep BUNDLED_KPMS in
-// PatchesViewModel.kt in sync with this list.
-//
-// These are vendored in app/src/main/assets (see .github/workflows/vendor-kpms.yml),
-// so the build never fetches them from the network: the modules travel inside the
-// APK and are embedded offline while patching.
-val BUNDLED_KPMS = listOf(
-    "Nohello.kpm",
-    "selinux_magisk_access_filter.kpm",
-)
-
-BUNDLED_KPMS.forEach { kpmName ->
-    val kpmFile = File("${project.projectDir}/src/main/assets/$kpmName")
-    if (!kpmFile.isFile || kpmFile.length() == 0L) {
-        throw GradleException(
-            "Missing bundled KPM at ${kpmFile.path}. Run the 'Vendor bundled KPMs' workflow."
-        )
-    }
-}
 
 // Compat kp version less than 0.10.7
 // TODO: Remove in future

@@ -151,14 +151,8 @@ fn sc_set_ap_mod_exclude(key: &CStr, uid: i64, exclude: i32) -> c_long {
     )
 }
 
-/// Read the "new app profile mode" kernel setting.
-///
-/// The superkey must be the caller's real key. It used to be hardcoded to
-/// `c"su"`, which made every read fail (and silently return the default 0) for
-/// any device whose SuperKey is not the literal string "su" — disabling the
-/// new-app auto-profile behaviour entirely.
-pub fn get_new_app_profile_mode(superkey: &CStr) -> i32 {
-    let key = superkey;
+pub fn get_new_app_profile_mode() -> i32 {
+    let key = c"su";
     let mut enabled = 0_i32;
     let rc = sc_kstorage_read(
         key,
@@ -321,7 +315,7 @@ fn set_retry_flag(path: &str, enabled: bool, label: &str) {
 pub fn refresh_ap_package_list(skey: &CStr, mutex: &Arc<Mutex<()>>) {
     let _lock = mutex.lock().unwrap();
 
-    if let Err(error) = with_synchronized_package_config(skey, |configs| {
+    if let Err(error) = with_synchronized_package_config(|configs| {
         apply_package_list(skey, configs);
     }) {
         error!("[refresh_ap_package_list] Keeping current authorization state: {error}");

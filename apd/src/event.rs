@@ -453,21 +453,11 @@ pub fn on_post_data_fs(superkey: Option<String>) -> Result<()> {
     let module_update_dir = defs::MODULE_UPDATE_DIR; //save module place
     let module_dir = defs::MODULE_DIR; // run modules place
     let module_update_flag = Path::new(defs::WORKING_DIR).join(defs::UPDATE_FILE_NAME); // if update ,there will be renewed modules file
-    // Both steps used to propagate with `?`, so a single failure aborted
-    // post-fs-data entirely and left every module unmounted and every stage
-    // script unrun. Degrade instead: the already-installed binaries and modules
-    // stay usable and the rest of the stage still runs.
-    if let Err(e) = assets::ensure_binaries() {
-        log::error!("ensure_binaries failed: {e}; continuing with installed binaries");
-    }
+    assets::ensure_binaries().with_context(|| "binary missing")?;
 
     if Path::new(defs::MODULE_UPDATE_DIR).exists() {
-        if let Err(e) = module::handle_updated_modules() {
-            log::error!("handle_updated_modules failed: {e}");
-        }
-        if let Err(e) = fs::remove_dir_all(module_update_dir) {
-            log::error!("failed to remove {}: {e}", module_update_dir);
-        }
+        module::handle_updated_modules()?;
+        fs::remove_dir_all(module_update_dir)?;
     }
 
     if safe_mode {
@@ -684,20 +674,7 @@ pub fn on_manager_boot_completed(superkey: Option<String>) -> Result<()> {
     Ok(())
 }
 
-pub fn start_uid_listener(superkey: Option<String>) -> Result<()> {
-    // Resolve the authentication key once for the whole listener. Every
-    // refresh below used to pass a hardcoded c"su", so on any device whose
-    // SuperKey is not the literal string "su" every supercall was rejected and
-    // the root allowlist was silently never refreshed. "su" stays as the
-    // fallback only when no key was supplied (same policy as
-    // on_manager_boot_completed).
-    let skey: std::ffi::CString = match superkey.as_deref() {
-        Some(key) if !key.is_empty() => {
-            std::ffi::CString::new(key).unwrap_or_else(|_| c"su".to_owned())
-        }
-        _ => c"su".to_owned(),
-    };
-
+pub fn start_uid_listener() -> Result<()> {
     use std::os::{fd::AsRawFd, unix::fs::OpenOptionsExt};
     let listener_lock = fs::OpenOptions::new()
         .write(true)
@@ -729,7 +706,6 @@ pub fn start_uid_listener(superkey: Option<String>) -> Result<()> {
 
     {
         let mutex_clone = mutex.clone();
-        let skey_for_thread = skey.clone();
         thread::spawn(move || {
             let Ok(mut signals) = Signals::new([SIGTERM, SIGINT, SIGPWR]) else {
                 warn!("Cannot register UID listener shutdown signals");
@@ -737,7 +713,8 @@ pub fn start_uid_listener(superkey: Option<String>) -> Result<()> {
             };
             for sig in signals.forever() {
                 log::warn!("[shutdown] Caught signal {sig}, refreshing package list...");
-                refresh_ap_package_list(&skey_for_thread, &mutex_clone);
+                let skey = c"su";
+                refresh_ap_package_list(skey, &mutex_clone);
                 if sig == SIGTERM || sig == SIGINT {
                     std::process::exit(0);
                 }
@@ -766,13 +743,14 @@ pub fn start_uid_listener(superkey: Option<String>) -> Result<()> {
     watcher.watch(dir.as_ref(), RecursiveMode::NonRecursive)?;
 
     // Register first, so changes during the initial refresh remain queued.
-    refresh_ap_package_list(&skey, &mutex);
+    refresh_ap_package_list(c"su", &mutex);
 
     let mut debounce = false;
     while let Ok(delayed) = rx.recv() {
         if delayed {
             debounce = false;
-            refresh_ap_package_list(&skey, &mutex);
+            let skey = c"su";
+            refresh_ap_package_list(skey, &mutex);
             report_kernel(None, "uid_listener", "package-list-updated");
         } else if !debounce {
             thread::sleep(Duration::from_secs(1));

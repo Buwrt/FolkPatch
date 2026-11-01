@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_layout_variant">Layout variant</string>
+    <string name="settings_layout_variant_summary">Use large M3E top bars with collapsible inline search, or keep the compact traditional top bars.</string>
+    <string name="settings_layout_variant_traditional">Traditional</string>
+    <string name="settings_layout_variant_m3e">M3E</string>
+    <string name="apm_search_hint">Search system modules</string>
+    <string name="kpm_search_hint">Search kernel modules</string>
+    <string name="su_search_hint">Search apps</string>
     <string name="launcher_icon_style_anime">Anime</string>
     <string name="launcher_icon_style_geometry">Geometry</string>
     <string name="launcher_icon_style_apatch">APatch</string>
@@ -93,15 +100,6 @@
     <string name="settings_grid_working_card_hide_mode_summary">Hide the \'Full\' or \'Half\' text on the working card</string>
 
 
-    <string name="settings_folkx_engine_title">FolkX Animation Engine</string>
-    <string name="settings_folkx_engine_summary">Use smooth physics-based spring animation when switching between top-level pages</string>
-    <string name="settings_folkx_animation_type">Animation Type</string>
-    <string name="settings_folkx_animation_speed">Animation Speed</string>
-    <string name="settings_folkx_animation_linear">Linear Motion</string>
-    <string name="settings_folkx_animation_spatial">Spatial Motion</string>
-    <string name="settings_folkx_animation_fade">Fade In/Out</string>
-    <string name="settings_folkx_animation_vertical">Vertical Slide</string>
-    <string name="settings_folkx_animation_diagonal">Diagonal Slide</string>
 
     <string name="su_exclude_all_title">Exclude All</string>
     <string name="su_exclude_all_confirm">Are you sure you want to exclude all non-root apps?</string>
@@ -266,7 +264,6 @@
     <string name="su_multi_select_confirm_grant">Grant ROOT to %d apps?</string>
     <string name="su_multi_select_confirm_revoke">Revoke ROOT from %d apps?</string>
     <string name="su_multi_select_confirm_exclude">Exclude %d apps?</string>
-    <string name="su_multi_select_enter">Multi-select</string>
     <string name="apm">System Module</string>
 
 
@@ -323,6 +320,24 @@
     <string name="settings_apm_install_confirm_summary">Show a confirmation dialog before installing modules</string>
     <string name="settings_show_more_module_info">Show module details</string>
     <string name="settings_show_more_module_info_summary">Show module ID and size in the module list</string>
+    <string name="module_sort">Sort order</string>
+    <string name="module_sort_priority">Priority groups</string>
+    <string name="module_sort_group_metamodule">Meta modules</string>
+    <string name="module_sort_group_metamodule_summary">Modules other modules attach to</string>
+    <string name="module_sort_group_zygisk">Zygisk modules</string>
+    <string name="module_sort_group_zygisk_summary">Zygisk providers and modules that use them</string>
+    <string name="module_sort_group_lsposed">LSPosed modules</string>
+    <string name="module_sort_group_lsposed_summary">Modules that hook through LSPosed</string>
+    <string name="module_sort_group_webui">Modules with a WebUI</string>
+    <string name="module_sort_group_webui_summary">Modules that provide their own web interface</string>
+    <string name="module_sort_group_action">Modules with actions</string>
+    <string name="module_sort_group_action_summary">Modules that run a script on demand</string>
+    <string name="module_sort_enabled_first">Enabled modules first</string>
+    <string name="module_sort_custom_order">Custom order</string>
+    <string name="module_sort_custom_order_summary">Drag modules into the order you want</string>
+    <string name="module_sort_reset_custom_order">Reset custom order</string>
+    <string name="module_sort_reset_custom_order_summary">Return to the priority order</string>
+    <string name="module_sort_drag_to_reorder">Drag to reorder</string>
     <string name="settings_apm_stay_on_page">Stay on operation page</string>
     <string name="settings_apm_stay_on_page_summary">Do not automatically return after module action execution</string>
     <string name="settings_enable_module_shortcut_add">Enable shortcut add button</string>
@@ -989,8 +1004,6 @@ Here are some possible reasons for authentication failure—please check which o
     <string name="dashboard_card_background_saved">Dashboard wallpaper saved successfully</string>
     <string name="dashboard_card_background_error">Failed to save dashboard wallpaper</string>
     <string name="dashboard_card_background_cleared">Dashboard wallpaper cleared</string>
-    <string name="dashboard_card_background_restore">Restore Default</string>
-    <string name="dashboard_card_background_restored">Default wallpaper restored</string>
     <string name="settings_dashboard_card_dual_dim">Enable dual day/night dim</string>
     <string name="settings_dashboard_card_dual_dim_desc">Automatically adjust dashboard wallpaper dim for light and dark themes</string>
     <string name="settings_dashboard_card_day_dim">Day mode dashboard wallpaper dim</string>
@@ -1456,10 +1469,6 @@ Here are some possible reasons for authentication failure—please check which o
     <string name="color_style_neutral">Neutral</string>
     <string name="color_style_fidelity">Fidelity</string>
     <!-- Color Contrast -->
-    <string name="color_contrast_label">Contrast</string>
-    <string name="color_contrast_standard">Standard</string>
-    <string name="color_contrast_medium">Medium</string>
-    <string name="color_contrast_high">High</string>
     <string name="settings_jailbreak_mode">Jailbreak mode</string>
     <string name="settings_jailbreak_mode_summary">"Load the KernelPatch module on a stock kernel. Patching is not allowed in this mode."</string>
     <string name="settings_jailbreak_soft_reboot">Soft reboot</string>
@@ -1501,78 +1510,4 @@ Here are some possible reasons for authentication failure—please check which o
     <string name="wallpaper_preview">Preview</string>
     <string name="wallpaper_set_background">Set as background</string>
     <string name="wallpaper_background_set">Background updated</string>
-    <string name="xiaocaiye_title">XiaoCaiYe Helper</string>
-    <string name="xiaocaiye_hint">Press a volume key to run an action. The helper is built into the manager, so no module needs to be flashed.</string>
-    <string name="xiaocaiye_vol_up">Volume Up: update keybox</string>
-    <string name="xiaocaiye_vol_down">Volume Down: update Tricky Store package list and APatch exclusion list</string>
-    <string name="xiaocaiye_running">Running...</string>
-    <string name="xiaocaiye_done">Done</string>
-    <string name="xiaocaiye_failed">Failed</string>
-
-    <string name="xiaocaiye_diagnose">Diagnose</string>
-
-    <!-- App hide black/white list -->
-    <string name="hide_list_title">App Hide List</string>
-    <string name="hide_list_summary">One tap scans every installed app and sorts it into a hide list (blacklist) or a keep list (whitelist). Tap any app to move it to the other list.</string>
-    <string name="hide_list_hint">Tap Scan to detect the apps on this device.</string>
-    <string name="hide_list_scan">Scan</string>
-    <string name="hide_list_scanning">Scanning...</string>
-    <string name="hide_list_apply">Apply</string>
-    <string name="hide_list_applying">Applying...</string>
-    <string name="hide_list_black">Hide (%1$d)</string>
-    <string name="hide_list_white">Keep (%1$d)</string>
-    <string name="hide_list_search">Search app name or package</string>
-    <string name="hide_list_empty">No app matches</string>
-    <string name="hide_list_move_to_white">Keep</string>
-    <string name="hide_list_move_to_black">Hide</string>
-    <string name="hide_list_manual">Manual</string>
-    <string name="hide_list_done">Done</string>
-    <string name="hide_list_failed">Failed - check the log below</string>
-    <string name="app_hide_title">App Hide List</string>
-    <string name="app_hide_summary">Tap scan to classify every installed app. Apps that need to stay hidden (banking, payment, DRM, games) go to the blacklist; root tooling and core system apps stay on the whitelist. Tap any entry to move it to the other side.</string>
-    <string name="app_hide_scan">One-tap scan</string>
-    <string name="app_hide_rescan">Rescan</string>
-    <string name="app_hide_black">Hidden (%1$d)</string>
-    <string name="app_hide_white">Visible (%1$d)</string>
-    <string name="app_hide_search">Search app name or package</string>
-    <string name="app_hide_apply">Apply - hide %1$d apps</string>
-    <string name="app_hide_manual">edited</string>
-    <string name="app_hide_applied">Hide list applied</string>
-    <string name="app_hide_failed">Failed to apply the hide list</string>
-    <string name="app_hide_entry">Hide list</string>
-
-    <string name="hide_list_mode_black">Blacklist mode</string>
-    <string name="hide_list_mode_white">Whitelist mode</string>
-    <string name="hide_list_mode_black_desc">Hide only the apps in the list</string>
-    <string name="hide_list_mode_white_desc">Hide everything except the apps in the list</string>
-    <string name="hide_list_exclude_system">Exclude system apps</string>
-    <string name="hide_list_exclude_system_desc">Keep system apps visible even in whitelist mode</string>
-    <string name="hide_list_root_trace">root trace - keep visible</string>
-    <string name="hide_list_rescan">Rescan</string>
-    <string name="hide_list_imported">Imported %1$d target apps</string>
-
-    <string name="hma_title">HMA Hide List</string>
-    <string name="hma_summary">Edits Hide-My-Applist directly. Protected apps are the ones HMA shields; hidden apps are the root traces HMA keeps from them.</string>
-    <string name="hma_scan">One-tap scan</string>
-    <string name="hma_load">Load</string>
-    <string name="hma_save">Save to HMA</string>
-    <string name="hma_search">Search app name or package</string>
-    <string name="hma_stats">%1$d protected apps, %2$d hidden apps</string>
-    <string name="hma_scanned">Scanned: %1$d protected, %2$d hidden</string>
-    <string name="hma_missing">Could not read HMA config.json. Is Hide-My-Applist installed and enabled?</string>
-    <string name="hma_saved">Saved to Hide-My-Applist</string>
-    <string name="hma_failed">Failed to write HMA config</string>
-
-    <string name="hma_source">Source: %1$s</string>
-    <string name="hma_import">Import file</string>
-    <string name="hma_export">Export file</string>
-    <string name="hma_import_ok">Imported %1$d protected apps</string>
-    <string name="hma_import_fail">Import failed: not a valid HMA config.json</string>
-    <string name="hma_export_ok">Config exported</string>
-    <string name="hma_export_fail">Export failed</string>
-    <string name="hma_tab_black">黑名单 (%1$d)</string>
-    <string name="hma_tab_white">白名单 (%1$d)</string>
-    <string name="hma_black_hint">勾选的应用会被隐藏</string>
-    <string name="hma_white_hint">勾选的应用即使命中黑名单也不隐藏，优先级最高</string>
-    <string name="hma_white_empty">白名单为空，搜索应用可添加豁免</string>
 </resources>

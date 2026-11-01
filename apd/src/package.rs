@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, HashSet},
-    ffi::CStr,
     fs::{self, File, OpenOptions},
     io::{self, Read},
     os::fd::AsRawFd,
@@ -332,15 +331,11 @@ fn write_config(path: &Path, configs: &[PackageConfig]) -> io::Result<()> {
     result
 }
 
-pub fn with_synchronized_package_config(
-    superkey: &CStr,
-    apply: impl FnOnce(&[PackageConfig]),
-) -> io::Result<()> {
-    synchronize_at(superkey, Path::new(CONFIG_PATH), Path::new(PACKAGES_PATH), apply)
+pub fn with_synchronized_package_config(apply: impl FnOnce(&[PackageConfig])) -> io::Result<()> {
+    synchronize_at(Path::new(CONFIG_PATH), Path::new(PACKAGES_PATH), apply)
 }
 
 fn synchronize_at(
-    superkey: &CStr,
     config_path: &Path,
     packages_path: &Path,
     apply: impl FnOnce(&[PackageConfig]),
@@ -351,7 +346,7 @@ fn synchronize_at(
     let known_path = Path::new(defs::AUTO_EXCLUDE_KNOWN_PACKAGES_FILE);
     let known_user_packages = read_known_user_packages();
     let manager_pkg = manager_package();
-    let new_app_profile_mode = crate::supercall::get_new_app_profile_mode(superkey);
+    let new_app_profile_mode = crate::supercall::get_new_app_profile_mode();
 
     let _lock = lock_config(config_path)?;
     let original = read_snapshot(config_path)?;

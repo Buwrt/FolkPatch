@@ -412,7 +412,7 @@ fn _install_module(zip: &str) -> Result<()> {
     // The id becomes a directory name under MODULE_DIR and is interpolated into
     // shell commands by the manager; reject path traversal at this trust boundary
     // (same rule as KernelSU and module_config.rs).
-    validate_module_id(module_id)?;
+    ensure_valid_module_id(module_id)?;
 
     // Check if this module is a metamodule
     let is_metamodule = metamodule::is_metamodule(&module_prop);
@@ -578,26 +578,13 @@ pub fn _uninstall_module(id: &str, update_dir: &str) -> Result<()> {
     let _ = mark_module_state(id, defs::REMOVE_FILE_NAME, true);
     Ok(())
 }
-/// Validate a module id before it is used as a directory name or interpolated
-/// into a shell command. Install-time already enforced this, but every runtime
-/// entry point must enforce it too: otherwise a crafted id traverses out of
-/// MODULE_DIR (see `run_action`) or injects shell metacharacters through the
-/// manager's command line. Same rule as plugin.rs and KernelSU.
-pub fn validate_module_id(id: &str) -> Result<()> {
-    let id_re = regex_lite::Regex::new(r"^[a-zA-Z][a-zA-Z0-9._-]+$")?;
-    ensure!(id_re.is_match(id), "invalid module id: {id}");
-    Ok(())
-}
-
 pub fn uninstall_module(id: &str) -> Result<()> {
-    validate_module_id(id)?;
     _uninstall_module(id, defs::MODULE_DIR)?;
     mark_update()?;
     Ok(())
 }
 
 pub fn undo_uninstall_module(id: &str) -> Result<()> {
-    validate_module_id(id)?;
     let module_path = Path::new(defs::MODULE_DIR).join(id);
     ensure!(module_path.exists(), "Module {id} not found");
 
@@ -634,8 +621,16 @@ pub fn read_module_prop(module_path: &Path) -> Result<HashMap<String, String>> {
     Ok(prop_map)
 }
 
+fn ensure_valid_module_id(id: &str) -> Result<()> {
+    let id_re = regex_lite::Regex::new(r"^[a-zA-Z][a-zA-Z0-9._-]+$")?;
+    if !id_re.is_match(id) {
+        bail!("invalid module id: {id}");
+    }
+    Ok(())
+}
+
 pub fn run_action(id: &str) -> Result<()> {
-    validate_module_id(id)?;
+    ensure_valid_module_id(id)?;
     let action_script_path = format!("/data/adb/modules/{}/action.sh", id);
     if Path::new(&action_script_path).exists() {
         let _ = exec_script(&action_script_path, true);
@@ -677,7 +672,6 @@ pub fn _enable_module(id: &str, update_dir: &Path) -> Result<()> {
 }
 
 pub fn enable_module(id: &str) -> Result<()> {
-    validate_module_id(id)?;
     let update_dir = Path::new(defs::MODULE_DIR);
     _enable_module(id, update_dir)?;
     Ok(())
@@ -693,7 +687,6 @@ pub fn _disable_module(id: &str, update_dir: &Path) -> Result<()> {
 }
 
 pub fn disable_module(id: &str) -> Result<()> {
-    validate_module_id(id)?;
     let module_dir = Path::new(defs::MODULE_DIR);
     _disable_module(id, module_dir)?;
 

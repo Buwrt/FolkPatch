@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_layout_variant">布局变体</string>
+    <string name="settings_layout_variant_summary">在系统模块、超级用户与内核模块页面使用 Material 3 Expressive 大标题与可折叠的内嵌搜索栏，或沿用经典的紧凑顶栏。</string>
+    <string name="settings_layout_variant_traditional">传统</string>
+    <string name="settings_layout_variant_m3e">M3E</string>
+    <string name="apm_search_hint">搜索系统模块</string>
+    <string name="kpm_search_hint">搜索内核模块</string>
+    <string name="su_search_hint">搜索应用</string>
     <string name="settings_launcher_icon">桌面图标</string>
     <string name="launcher_icon_style_anime">动漫</string>
     <string name="launcher_icon_style_geometry">几何</string>
@@ -95,15 +102,6 @@
     <string name="settings_grid_working_card_hide_mode">隐藏工作模式</string>
     <string name="settings_grid_working_card_hide_mode_summary">隐藏工作卡片上的"Full"或"Half"文字</string>
 
-    <string name="settings_folkx_engine_title">FolkX动画引擎</string>
-    <string name="settings_folkx_engine_summary">在顶层页面切换时使用丝滑的物理弹簧动画</string>
-    <string name="settings_folkx_animation_type">动画类型</string>
-    <string name="settings_folkx_animation_speed">动画速度</string>
-    <string name="settings_folkx_animation_linear">线性运动</string>
-    <string name="settings_folkx_animation_spatial">空间运动</string>
-    <string name="settings_folkx_animation_fade">渐隐渐显</string>
-    <string name="settings_folkx_animation_vertical">垂直滑动</string>
-    <string name="settings_folkx_animation_diagonal">对角滑动</string>
 
     <string name="about_source_code"><![CDATA[<p>在 %1$s 查看源代码<p/>加入我们的 %2$s 频道<p/>加入我们的 %3$s 群组]]></string>
     <string name="send_log">发送日志</string>
@@ -263,7 +261,6 @@
     <string name="su_multi_select_confirm_grant">授予 ROOT 给 %d 个应用？</string>
     <string name="su_multi_select_confirm_revoke">撤销 %d 个应用的 ROOT 权限？</string>
     <string name="su_multi_select_confirm_exclude">排除 %d 个应用？</string>
-    <string name="su_multi_select_enter">多选</string>
 
     <string name="apm">系统模块</string>
     <string name="apm_not_installed">未安装系统补丁</string>
@@ -318,6 +315,24 @@
     <string name="settings_apm_install_confirm_summary">安装模块前显示确认对话框</string>
     <string name="settings_show_more_module_info">显示模块详细信息</string>
     <string name="settings_show_more_module_info_summary">在模块列表中显示模块 ID 和大小</string>
+    <string name="module_sort">排序</string>
+    <string name="module_sort_priority">优先分组</string>
+    <string name="module_sort_group_metamodule">元模块</string>
+    <string name="module_sort_group_metamodule_summary">其他模块依赖的模块</string>
+    <string name="module_sort_group_zygisk">Zygisk 模块</string>
+    <string name="module_sort_group_zygisk_summary">Zygisk 提供者及使用它的模块</string>
+    <string name="module_sort_group_lsposed">LSPosed 模块</string>
+    <string name="module_sort_group_lsposed_summary">通过 LSPosed 进行 Hook 的模块</string>
+    <string name="module_sort_group_webui">带 WebUI 的模块</string>
+    <string name="module_sort_group_webui_summary">提供独立网页界面的模块</string>
+    <string name="module_sort_group_action">带操作的模块</string>
+    <string name="module_sort_group_action_summary">按需运行脚本的模块</string>
+    <string name="module_sort_enabled_first">已启用模块优先</string>
+    <string name="module_sort_custom_order">自定义顺序</string>
+    <string name="module_sort_custom_order_summary">拖动模块调整显示顺序</string>
+    <string name="module_sort_reset_custom_order">重置自定义顺序</string>
+    <string name="module_sort_reset_custom_order_summary">恢复按优先分组排序</string>
+    <string name="module_sort_drag_to_reorder">拖动排序</string>
     <string name="settings_apm_stay_on_page">留在操作页面</string>
     <string name="settings_apm_stay_on_page_summary">系统模块执行完操作后不自动返回</string>
     <string name="settings_enable_module_shortcut_add">启用快捷添加按钮</string>
@@ -905,8 +920,6 @@ KernelPatch 需要修补 boot 镜像。
     <string name="dashboard_card_background_saved">仪表盘壁纸保存成功</string>
     <string name="dashboard_card_background_error">仪表盘壁纸保存失败</string>
     <string name="dashboard_card_background_cleared">仪表盘壁纸已清除</string>
-    <string name="dashboard_card_background_restore">恢复默认壁纸</string>
-    <string name="dashboard_card_background_restored">已恢复默认壁纸</string>
     <string name="settings_dashboard_card_dual_dim">启用昼夜双暗度</string>
     <string name="settings_dashboard_card_dual_dim_desc">自动根据明暗主题调整仪表盘壁纸暗度</string>
     <string name="settings_dashboard_card_day_dim">白天模式仪表盘壁纸暗度</string>
@@ -1397,10 +1410,6 @@ KernelPatch 需要修补 boot 镜像。
     <string name="color_style_neutral">中性</string>
     <string name="color_style_fidelity">保真</string>
     <!-- Color Contrast -->
-    <string name="color_contrast_label">对比度</string>
-    <string name="color_contrast_standard">标准</string>
-    <string name="color_contrast_medium">中等</string>
-    <string name="color_contrast_high">高</string>
     <string name="settings_info_copy">长按复制信息</string>
     <string name="settings_info_copy_summary">长按首页信息栏中的条目即可复制其内容</string>
     <string name="home_info_copied">%1$s 已复制</string>
@@ -1445,78 +1454,4 @@ KernelPatch 需要修补 boot 镜像。
     <string name="wallpaper_preview">预览</string>
     <string name="wallpaper_set_background">设为背景</string>
     <string name="wallpaper_background_set">背景已更新</string>
-    <string name="xiaocaiye_title">小助手</string>
-    <string name="xiaocaiye_hint">按音量键执行对应操作。功能已内置，无需刷入模块。</string>
-    <string name="xiaocaiye_vol_up">按音量键 ＋: 更新 keybox</string>
-    <string name="xiaocaiye_vol_down">按音量键 －: 更新 TS 包名和 AP 排除列表</string>
-    <string name="xiaocaiye_running">执行中...</string>
-    <string name="xiaocaiye_done">执行完成</string>
-    <string name="xiaocaiye_failed">执行失败</string>
-
-    <string name="xiaocaiye_diagnose">诊断</string>
-
-    <!-- 应用隐藏黑白名单 -->
-    <string name="hide_list_title">应用隐藏名单</string>
-    <string name="hide_list_summary">一键扫描本机全部应用，自动分成黑名单（隐藏）和白名单（不隐藏）。点击任意应用可移到另一边。</string>
-    <string name="hide_list_hint">点击「一键扫描」开始检测本机应用。</string>
-    <string name="hide_list_scan">一键扫描</string>
-    <string name="hide_list_scanning">扫描中...</string>
-    <string name="hide_list_apply">应用配置</string>
-    <string name="hide_list_applying">写入中...</string>
-    <string name="hide_list_black">黑名单 (%1$d)</string>
-    <string name="hide_list_white">白名单 (%1$d)</string>
-    <string name="hide_list_search">搜索应用名或包名</string>
-    <string name="hide_list_empty">没有匹配的应用</string>
-    <string name="hide_list_move_to_white">不隐藏</string>
-    <string name="hide_list_move_to_black">隐藏</string>
-    <string name="hide_list_manual">手动</string>
-    <string name="hide_list_done">已生效</string>
-    <string name="hide_list_failed">失败，请查看下方日志</string>
-    <string name="app_hide_title">应用隐藏列表</string>
-    <string name="app_hide_summary">点击扫描即可自动分类全部已安装应用：银行、支付、政务、DRM 流媒体、游戏等进入黑名单（隐藏），root 工具与系统核心组件进入白名单（不隐藏）。点击任意条目可将其移到另一侧。</string>
-    <string name="app_hide_scan">一键扫描</string>
-    <string name="app_hide_rescan">重新扫描</string>
-    <string name="app_hide_black">隐藏 (%1$d)</string>
-    <string name="app_hide_white">不隐藏 (%1$d)</string>
-    <string name="app_hide_search">搜索应用名或包名</string>
-    <string name="app_hide_apply">应用 - 隐藏 %1$d 个应用</string>
-    <string name="app_hide_manual">已手动调整</string>
-    <string name="app_hide_applied">隐藏列表已生效</string>
-    <string name="app_hide_failed">隐藏列表应用失败</string>
-    <string name="app_hide_entry">隐藏列表</string>
-
-    <string name="hide_list_mode_black">黑名单模式</string>
-    <string name="hide_list_mode_white">白名单模式</string>
-    <string name="hide_list_mode_black_desc">只隐藏列表中的应用</string>
-    <string name="hide_list_mode_white_desc">隐藏除列表以外的所有应用</string>
-    <string name="hide_list_exclude_system">排除系统应用</string>
-    <string name="hide_list_exclude_system_desc">白名单模式下系统应用依然可见</string>
-    <string name="hide_list_root_trace">root 痕迹 - 保持可见</string>
-    <string name="hide_list_rescan">重新扫描</string>
-    <string name="hide_list_imported">已导入 %1$d 个目标应用</string>
-
-    <string name="hma_title">HMA 隐藏列表</string>
-    <string name="hma_summary">直接编辑 Hide-My-Applist 的配置。被保护的应用是 HMA 要保护的对象；隐藏的应用是对这些对象藏起来的 root 痕迹。</string>
-    <string name="hma_scan">一键扫描</string>
-    <string name="hma_load">读取</string>
-    <string name="hma_save">保存到 HMA</string>
-    <string name="hma_search">搜索应用名或包名</string>
-    <string name="hma_stats">%1$d 个被保护应用，%2$d 个被隐藏应用</string>
-    <string name="hma_scanned">扫描完成：%1$d 个被保护，%2$d 个被隐藏</string>
-    <string name="hma_missing">无法读取 HMA 的 config.json，请确认 Hide-My-Applist 已安装并启用。</string>
-    <string name="hma_saved">已保存到 Hide-My-Applist</string>
-    <string name="hma_failed">写入 HMA 配置失败</string>
-
-    <string name="hma_source">配置来源：%1$s</string>
-    <string name="hma_import">导入文件</string>
-    <string name="hma_export">导出文件</string>
-    <string name="hma_import_ok">已导入 %1$d 个被保护应用</string>
-    <string name="hma_import_fail">导入失败：不是有效的 HMA config.json</string>
-    <string name="hma_export_ok">配置已导出</string>
-    <string name="hma_export_fail">导出失败</string>
-    <string name="hma_tab_black">黑名单 (%1$d)</string>
-    <string name="hma_tab_white">白名单 (%1$d)</string>
-    <string name="hma_black_hint">勾选的应用会被隐藏</string>
-    <string name="hma_white_hint">勾选的应用即使命中黑名单也不隐藏，优先级最高</string>
-    <string name="hma_white_empty">白名单为空，搜索应用可添加豁免</string>
 </resources>

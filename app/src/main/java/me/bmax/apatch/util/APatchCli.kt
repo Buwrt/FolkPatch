@@ -267,21 +267,6 @@ fun rootShellForResult(vararg cmds: String): Shell.Result {
     return getRootShell().newJob().add(*cmds).to(out, err).exec()
 }
 
-/**
- * Quote an argument for safe interpolation into a shell command.
- *
- * Module/plugin ids and function names reach the root shell as raw strings.
- * Without quoting, a crafted id containing `;`, backticks, spaces or `$()`
- * escapes the argument and runs arbitrary commands as root. Enclosing in single
- * quotes and escaping embedded quotes keeps the value a single literal token.
- * Returns `''` (an empty literal) for null so a missing value never vanishes
- * into an unquoted empty string that shifts the remaining arguments.
- */
-private fun shellQuote(value: String?): String {
-    if (value == null) return "''"
-    return "'" + value.replace("'", "'\\''") + "'"
-}
-
 fun execApd(args: String, newShell: Boolean = false): Boolean {
     return try {
         if (newShell) {
@@ -391,11 +376,10 @@ fun migrateStockBootBackup() {
 }
 
 fun toggleModule(id: String, enable: Boolean): Boolean {
-    val quotedId = shellQuote(id)
     val cmd = if (enable) {
-        "module enable $quotedId"
+        "module enable $id"
     } else {
-        "module disable $quotedId"
+        "module disable $id"
     }
     val result = execApd(cmd,true)
     Log.i(TAG, "$cmd result: $result")
@@ -403,14 +387,14 @@ fun toggleModule(id: String, enable: Boolean): Boolean {
 }
 
 fun uninstallModule(id: String): Boolean {
-    val cmd = "module uninstall ${shellQuote(id)}"
+    val cmd = "module uninstall $id"
     val result = execApd(cmd,true)
     Log.i(TAG, "uninstall module $id result: $result")
     return result
 }
 
 fun undoUninstallModule(id: String): Boolean {
-    val cmd = "module undo-uninstall ${shellQuote(id)}"
+    val cmd = "module undo-uninstall $id"
     val result = execApd(cmd, true)
     Log.i(TAG, "undo uninstall module $id result: $result")
     return result
@@ -426,14 +410,14 @@ fun listPlugins(): String = runCatching {
 }
 
 fun setPluginState(id: String, enable: Boolean): Boolean {
-    val cmd = if (enable) "plugin enable ${shellQuote(id)}" else "plugin disable ${shellQuote(id)}"
+    val cmd = if (enable) "plugin enable $id" else "plugin disable $id"
     val result = execApd(cmd, true)
     Log.i(TAG, "$cmd result: $result")
     return result
 }
 
 fun runPluginCallback(id: String, function: String): Boolean {
-    val cmd = "plugin run ${shellQuote(id)} ${shellQuote(function)}"
+    val cmd = "plugin run $id $function"
     val result = execApd(cmd, true)
     Log.i(TAG, "run plugin $id $function result: $result")
     return result
@@ -444,7 +428,7 @@ fun runPluginCallback(id: String, function: String): Boolean {
  * Returns a pair of (success, output).
  */
 fun runPluginCallbackWithOutput(id: String, function: String): Pair<Boolean, String> {
-    val cmd = "${APApplication.APD_PATH} plugin run ${shellQuote(id)} ${shellQuote(function)}"
+    val cmd = "${APApplication.APD_PATH} plugin run $id $function"
     return runCatching {
         val result = rootShellForResult(cmd)
         val output = result.out.joinToString("\n").trim()
@@ -458,21 +442,21 @@ fun runPluginCallbackWithOutput(id: String, function: String): Pair<Boolean, Str
 }
 
 fun installPlugin(zipPath: String): Boolean {
-    val cmd = "plugin install ${shellQuote(zipPath)}"
+    val cmd = "plugin install $zipPath"
     val result = execApd(cmd, true)
     Log.i(TAG, "install plugin $zipPath result: $result")
     return result
 }
 
 fun uninstallPlugin(id: String): Boolean {
-    val cmd = "plugin uninstall ${shellQuote(id)}"
+    val cmd = "plugin uninstall $id"
     val result = execApd(cmd, true)
     Log.i(TAG, "uninstall plugin $id result: $result")
     return result
 }
 
 fun getPluginConfig(id: String, key: String): String {
-    val cmd = "${APApplication.APD_PATH} plugin config --id ${shellQuote(id)} get ${shellQuote(key)}"
+    val cmd = "${APApplication.APD_PATH} plugin config --id $id get $key"
     return runCatching {
         rootShellForResult(cmd).out.joinToString("\n").trim()
     }.getOrElse { e ->
@@ -482,7 +466,9 @@ fun getPluginConfig(id: String, key: String): String {
 }
 
 fun setPluginConfig(id: String, key: String, value: String): Boolean {
-    val cmd = "plugin config --id ${shellQuote(id)} set ${shellQuote(key)} ${shellQuote(value)}"
+    // Escape single quotes for safe shell passing.
+    val escaped = value.replace("'", "'\\''")
+    val cmd = "plugin config --id $id set $key '$escaped'"
     val result = execApd(cmd, true)
     Log.i(TAG, "setPluginConfig $id $key result: $result")
     return result
@@ -491,7 +477,7 @@ fun setPluginConfig(id: String, key: String, value: String): Boolean {
 fun runPluginAction(id: String): Boolean = runPluginCallback(id, "action")
 
 fun getPluginLog(id: String): String {
-    val cmd = "${APApplication.APD_PATH} plugin log ${shellQuote(id)}"
+    val cmd = "${APApplication.APD_PATH} plugin log $id"
     return runCatching {
         rootShellForResult(cmd).out.joinToString("\n").trim()
     }.getOrElse { e ->
@@ -575,7 +561,7 @@ fun installModule(
 
         var result = false
         if(type == MODULE_TYPE.APM) {
-            val cmd = "${APApplication.APD_PATH} module install ${shellQuote(file.absolutePath)}"
+            val cmd = "${APApplication.APD_PATH} module install ${file.absolutePath}"
             // Add timeout to prevent hanging installations
             result = try {
                 kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) {

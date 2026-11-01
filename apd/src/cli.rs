@@ -309,7 +309,7 @@ pub fn run() -> Result<()> {
             Ok(())
         }
 
-        Commands::UidListener => event::start_uid_listener(cli.superkey),
+        Commands::UidListener => event::start_uid_listener(),
 
         Commands::Insmod { module, params } => insmod::insmod(&module, &params),
 

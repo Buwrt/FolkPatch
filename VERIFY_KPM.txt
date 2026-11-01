@@ -1,2 +1,0 @@
-=== expected (upstream) vs committed ===
-ALL OK

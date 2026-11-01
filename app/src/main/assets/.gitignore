@@ -2,8 +2,3 @@ kpimg
 *.kpm
 *.ko
 fpdrop
-
-# Bundled KPMs are vendored: they ship inside the APK, so the build must not
-# depend on a network download. Keep these two tracked in git.
-!Nohello.kpm
-!selinux_magisk_access_filter.kpm

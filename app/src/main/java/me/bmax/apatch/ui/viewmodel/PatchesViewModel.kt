@@ -56,19 +56,6 @@ import me.bmax.apatch.ui.screen.patches.selectedBootImage
 
 private const val TAG = "PatchViewModel"
 
-/**
- * KPMs shipped inside the APK assets. They are embedded on every patch, so the
- * produced boot.img already carries them: kpimg loads them at pre-kernel-init,
- * i.e. before /data is mounted and before the manager ever runs.
- *
- * Remove an entry here (and from BUNDLED_KPMS in app/build.gradle.kts) to stop
- * shipping it.
- */
-private val BUNDLED_KPMS = listOf(
-    "Nohello.kpm",
-    "selinux_magisk_access_filter.kpm",
-)
-
 class PatchesViewModel : ViewModel() {
 
     enum class PatchMode(val sId: Int) {
@@ -148,76 +135,6 @@ class PatchesViewModel : ViewModel() {
             apApp.assets.open(script).writeTo(dest)
         }
 
-        // Extract bundled KPMs. Missing assets must not abort the whole patch
-        // flow, so failures are logged and the module is simply skipped.
-        for (kpm in BUNDLED_KPMS) {
-            try {
-                apApp.assets.open(kpm).writeTo(File(patchDir, kpm))
-            } catch (e: IOException) {
-                Log.e(TAG, "Missing bundled KPM asset: $kpm", e)
-            }
-        }
-
-    }
-
-    /**
-     * Registers the bundled KPMs as extras to embed. kptools reads their
-     * metadata so the module is embedded with its real name and shows up in the
-     * "embedded modules" list in the UI, exactly like a manually picked file.
-     */
-    private fun embedBundledKpms() {
-        for (kpmFileName in BUNDLED_KPMS) {
-            val kpmFile = patchDir.getChildFile(kpmFileName)
-            if (!kpmFile.exists()) {
-                Log.w(TAG, "bundled KPM not staged: $kpmFileName")
-                continue
-            }
-
-            val result = shellForResult(
-                getShell(), "cd $patchDir", "./kptools -l -M ${kpmFile.path}"
-            )
-            if (!result.isSuccess) {
-                Log.e(TAG, "bundled KPM rejected by kptools: $kpmFileName")
-                continue
-            }
-
-            val kpm = try {
-                Ini(StringReader(result.out.joinToString("\n")))["kpm"]
-            } catch (e: Exception) {
-                Log.e(TAG, "parse bundled KPM error: ${e.message}")
-                null
-            }
-            val name = kpm?.get("name").toString()
-            if (kpm == null || name.isEmpty()) {
-                Log.e(TAG, "bundled KPM has no name: $kpmFileName")
-                continue
-            }
-
-            // Re-patching an image that already carries this module would embed
-            // it twice. doPatch() re-adds already-embedded extras with -E, and
-            // a user-picked copy of the same module wins.
-            if (existedExtras.any { it.name == name } || newExtras.any { it.name == name }) {
-                Log.i(TAG, "bundled KPM already present, skipping: $name")
-                continue
-            }
-
-            newExtras.add(
-                KPModel.KPMInfo(
-                    KPModel.ExtraType.KPM,
-                    name,
-                    KPModel.TriggerEvent.PRE_KERNEL_INIT.event,
-                    "",
-                    version = kpm["version"].toString(),
-                    license = kpm["license"].toString(),
-                    author = kpm["author"].toString(),
-                    description = kpm["description"].toString(),
-                    moduleId = safeKpmModuleId(name),
-                    loadSource = "embedded",
-                )
-            )
-            newExtrasFileName.add(kpmFileName)
-            Log.i(TAG, "bundled KPM queued for embedding: $name ($kpmFileName)")
-        }
     }
 
     private fun parseKpimg() {
@@ -427,11 +344,6 @@ class PatchesViewModel : ViewModel() {
             }
             if (entryMode == PatchMode.PATCH_AND_INSTALL || entryMode == PatchMode.UNPATCH || entryMode == PatchMode.INSTALL_TO_NEXT_SLOT) {
                 extractAndParseBootimg(entryMode)
-            }
-            // Runs last: it needs existedExtras, which parseBootimg()/extractAndParseBootimg()
-            // fill in for an already-patched image, to avoid embedding a module twice.
-            if (entryMode != PatchMode.UNPATCH) {
-                embedBundledKpms()
             }
             prepared = true
             return true
