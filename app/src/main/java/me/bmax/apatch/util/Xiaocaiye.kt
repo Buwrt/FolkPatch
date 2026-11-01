@@ -26,9 +26,15 @@ object Xiaocaiye {
     /** Which script a volume key maps to. Mirrors the module's action.sh. */
     enum class Option { UPDATE_KEYBOX, UPDATE_PACKAGES }
 
-    /** Keybox paths to probe, in order of preference. */
+    /**
+     * Where the keybox may live. update_keybox.sh writes to
+     * /data/adb/tricky_store/keybox.xml, which is not the modules directory,
+     * so both are probed and a find over /data/adb catches anything else.
+     */
     private val KEYBOX_PATHS = listOf(
+        "/data/adb/tricky_store/keybox.xml",
         "/data/adb/modules/tricky_store/keybox.xml",
+        "/data/adb/XiaoCaiYe/keybox.xml",
         "/data/adb/modules/xiaocaiye/keybox.xml",
     )
 
@@ -69,7 +75,16 @@ object Xiaocaiye {
      * whole chain stops being usable.
      */
     fun keyboxStatus(): KeyboxStatus {
-        val lines = collectLines(*KEYBOX_PATHS.map { "cat $it 2>/dev/null" }.toTypedArray())
+        // Probe the known paths, then fall back to a scan so a keybox in an
+        // unexpected place still gets picked up.
+        val lines = collectLines(
+            *KEYBOX_PATHS.map { "cat $it 2>/dev/null" }.toTypedArray(),
+            "find /data/adb -maxdepth 4 -type f -name 'keybox.xml' 2>/dev/null | head -5",
+        ).toMutableList()
+        val found = lines.filter { it.startsWith("/") && it.endsWith("keybox.xml") }.distinct()
+        for (path in found) {
+            lines += collectLines("cat $path 2>/dev/null")
+        }
         val text = lines.joinToString("\n")
         if (!text.contains("<Keybox", ignoreCase = true) &&
             !text.contains("BEGIN CERTIFICATE")
