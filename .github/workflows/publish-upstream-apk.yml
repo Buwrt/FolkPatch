@@ -1,0 +1,28 @@
+name: Publish upstream APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the upstream APK
+        run: |
+          curl -sSL -o FolkPatch_115404_0f3f42ba-release.apk \
+            "https://github.com/LyraVoid/FolkPatch/releases/download/115404/FolkPatch_115404_0f3f42ba_on_main-release.apk"
+          ls -la *.apk
+          test -s FolkPatch_115404_0f3f42ba-release.apk
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete 115404 --yes --cleanup-tag 2>/dev/null || true
+          gh release create 115404 \
+            --title "FolkPatch (115404)" \
+            --notes "Upstream LyraVoid/FolkPatch release 115404 (commit 0f3f42ba). Matches the source tree on main." \
+            FolkPatch_115404_0f3f42ba-release.apk
