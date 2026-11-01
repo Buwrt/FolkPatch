@@ -29,10 +29,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -54,6 +57,7 @@ import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.bmax.apatch.APApplication
 import me.bmax.apatch.Natives
 import me.bmax.apatch.R
@@ -86,10 +90,24 @@ fun AppProfileScreen(
         }
     }
     val appInfo = appInfoState.value
-    if (appInfo == null) {
-        navigator.popBackStack()
-        return
+
+    // Leaving the page must happen from a side effect. Navigating while
+    // composing runs again on every recomposition, so a list refresh (or the
+    // re-sort after picking a mode) could pop more than one entry and leave
+    // the back stack pointing at this page again.
+    var popped by remember { mutableStateOf(false) }
+    LaunchedEffect(appInfo == null) {
+        if (appInfo == null && !popped) {
+            popped = true
+            navigator.popBackStack()
+        }
     }
+
+    // Handle the system/gesture back key here, so it always closes this page
+    // instead of depending on which handler happens to be registered above it.
+    BackHandler { navigator.popBackStack() }
+
+    if (appInfo == null) return
 
     val config = appInfo.config
     
@@ -183,8 +201,12 @@ fun AppProfileScreen(
                             }
                         }
                         PkgConfig.changeConfig(config)
-                        // 本地触发列表重新排序，返回 SuperUser 页无需全量重拉
-                        SuperUserViewModel.apps = ArrayList(SuperUserViewModel.apps)
+                        // 本地触发列表重新排序，返回 SuperUser 页无需全量重拉。
+                        // apps 是 Compose 的快照状态，只能回到主线程再写，
+                        // 否则后台线程改状态会让列表读到不一致的值。
+                        withContext(Dispatchers.Main) {
+                            SuperUserViewModel.apps = ArrayList(SuperUserViewModel.apps)
+                        }
                     }
                 }
 

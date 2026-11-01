@@ -233,7 +233,12 @@ private fun SuperUserScreenModern(navigator: DestinationsNavigator, useLegacySuP
                         if (viewModel.isSelectionMode) {
                             viewModel.toggleSelection(app.uid)
                         } else {
-                            navigator.navigate(AppProfileScreenDestination(app.packageName, app.uid))
+                            navigator.navigate(AppProfileScreenDestination(app.packageName, app.uid)) {
+                                // A second tap during the open animation used to push
+                                // the same page twice, so one back press only returned
+                                // to the identical page below it.
+                                launchSingleTop = true
+                            }
                         }
                     },
                     onLongClick = {
