@@ -23,6 +23,14 @@ jobs:
           ls -la app/debug.keystore
           grep -n signingConfig app/build.gradle.kts
 
+      - name: Raise the version epoch above the floor
+        run: |
+          COUNT=$(git rev-list --count HEAD)
+          EPOCH=$((115407 - COUNT))
+          echo "commits=$COUNT epoch=$EPOCH -> versionCode=115407"
+          sed -i "s/^managerVersionEpoch=.*/managerVersionEpoch=$EPOCH/" version.properties
+          cat version.properties
+
       - name: Build debug APK
         run: |
           set -o pipefail
