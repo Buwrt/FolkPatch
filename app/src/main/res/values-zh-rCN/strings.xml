@@ -1490,4 +1490,21 @@ KernelPatch 需要修补 boot 镜像。
     <string name="xiaocaiye_vol_down">按音量键 －: 更新 TS 包名和 AP 排除列表</string>
     <string name="xiaocaiye_vol_up">按音量键 ＋: 更新 keybox</string>
 
+
+    <!-- 小菜叶助手状态 -->
+    <string name="xiaocaiye_status">状态</string>
+    <string name="xiaocaiye_keybox">密钥盒</string>
+    <string name="xiaocaiye_keybox_checking">检查中…</string>
+    <string name="xiaocaiye_keybox_missing">未安装</string>
+    <string name="xiaocaiye_keybox_unknown">未知</string>
+    <string name="xiaocaiye_keybox_expired">已过期</string>
+    <string name="xiaocaiye_keybox_days">剩余 %1$d 天</string>
+    <string name="xiaocaiye_network">服务器</string>
+    <string name="xiaocaiye_network_ok">可连接</string>
+    <string name="xiaocaiye_network_fail">无法连接</string>
+    <string name="xiaocaiye_network_checking">检查中…</string>
+    <string name="xiaocaiye_auto_update">自动刷新</string>
+    <string name="xiaocaiye_auto_update_summary">打开本页时，若距上次刷新已超过 12 小时，自动刷新密钥盒</string>
+    <string name="xiaocaiye_refresh_now">立即刷新</string>
+
 </resources>

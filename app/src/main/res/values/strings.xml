@@ -1546,4 +1546,21 @@ Here are some possible reasons for authentication failure—please check which o
     <string name="xiaocaiye_vol_down">Volume Down: update Tricky Store package list and APatch exclusion list</string>
     <string name="xiaocaiye_vol_up">Volume Up: update keybox</string>
 
+
+    <!-- XiaoCaiYe helper status -->
+    <string name="xiaocaiye_status">Status</string>
+    <string name="xiaocaiye_keybox">Keybox</string>
+    <string name="xiaocaiye_keybox_checking">Checking…</string>
+    <string name="xiaocaiye_keybox_missing">Not installed</string>
+    <string name="xiaocaiye_keybox_unknown">Unknown</string>
+    <string name="xiaocaiye_keybox_expired">Expired</string>
+    <string name="xiaocaiye_keybox_days">Valid for %1$d days</string>
+    <string name="xiaocaiye_network">Server</string>
+    <string name="xiaocaiye_network_ok">Reachable</string>
+    <string name="xiaocaiye_network_fail">Unreachable</string>
+    <string name="xiaocaiye_network_checking">Checking…</string>
+    <string name="xiaocaiye_auto_update">Auto refresh</string>
+    <string name="xiaocaiye_auto_update_summary">Refresh the keybox when this page opens, if it was last refreshed more than 12 hours ago</string>
+    <string name="xiaocaiye_refresh_now">Refresh keybox</string>
+
 </resources>

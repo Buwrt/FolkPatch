@@ -6,6 +6,8 @@ import com.topjohnwu.superuser.CallbackList
 import me.bmax.apatch.APApplication
 import java.io.File
 import java.io.FileOutputStream
+import java.security.cert.CertificateFactory
+import java.security.cert.X509Certificate
 
 /**
  * Built-in XiaoCaiYe helper.
@@ -23,6 +25,103 @@ object Xiaocaiye {
 
     /** Which script a volume key maps to. Mirrors the module's action.sh. */
     enum class Option { UPDATE_KEYBOX, UPDATE_PACKAGES }
+
+    /** Keybox paths to probe, in order of preference. */
+    private val KEYBOX_PATHS = listOf(
+        "/data/adb/modules/tricky_store/keybox.xml",
+        "/data/adb/modules/xiaocaiye/keybox.xml",
+    )
+
+    /** A keybox is treated as due for a refresh once it is this close to expiry. */
+    const val EXPIRY_WARNING_DAYS = 7
+
+    enum class KeyboxState { OK, EXPIRING, EXPIRED, MISSING, UNKNOWN }
+
+    data class KeyboxStatus(
+        val state: KeyboxState,
+        /** Whole days until the earliest certificate in the chain expires. */
+        val daysLeft: Int? = null,
+    )
+
+    /** Runs read-only shell commands and returns every output line. */
+    private fun collectLines(vararg commands: String): List<String> {
+        val out = ArrayList<String>()
+        val stdout = object : CallbackList<String?>() {
+            override fun onAddElement(s: String?) { s?.let(out::add) }
+        }
+        val stderr = object : CallbackList<String?>() {
+            override fun onAddElement(s: String?) { s?.let(out::add) }
+        }
+        return try {
+            withNewRootShell { newJob().add(*commands).to(stdout, stderr).exec() }
+            out
+        } catch (e: Exception) {
+            Log.e(TAG, "collectLines failed", e)
+            out
+        }
+    }
+
+    /**
+     * Reads the installed keybox and reports how long it stays valid.
+     *
+     * A keybox file carries no plain-text expiry, so the certificates inside it
+     * are parsed and the earliest `notAfter` wins - that is the moment the
+     * whole chain stops being usable.
+     */
+    fun keyboxStatus(): KeyboxStatus {
+        val lines = collectLines(*KEYBOX_PATHS.map { "cat $it 2>/dev/null" }.toTypedArray())
+        val text = lines.joinToString("\n")
+        if (!text.contains("<Keybox", ignoreCase = true) &&
+            !text.contains("BEGIN CERTIFICATE")
+        ) {
+            return KeyboxStatus(KeyboxState.MISSING)
+        }
+
+        val expiry = earliestExpiry(text) ?: return KeyboxStatus(KeyboxState.UNKNOWN)
+        val daysLeft = ((expiry - System.currentTimeMillis()) / 86_400_000L).toInt()
+        val state = when {
+            daysLeft < 0 -> KeyboxState.EXPIRED
+            daysLeft <= EXPIRY_WARNING_DAYS -> KeyboxState.EXPIRING
+            else -> KeyboxState.OK
+        }
+        return KeyboxStatus(state, daysLeft.coerceAtLeast(0))
+    }
+
+    private fun earliestExpiry(text: String): Long? {
+        val factory = runCatching { CertificateFactory.getInstance("X.509") }.getOrNull()
+            ?: return null
+        val pem = Regex(
+            "-----BEGIN CERTIFICATE-----(.*?)-----END CERTIFICATE-----",
+            RegexOption.DOT_MATCHES_ALL,
+        )
+        var earliest: Long? = null
+        for (match in pem.findAll(text)) {
+            val encoded = "-----BEGIN CERTIFICATE-----" +
+                match.groupValues[1] +
+                "-----END CERTIFICATE-----"
+            runCatching {
+                val cert = factory.generateCertificate(
+                    encoded.byteInputStream()
+                ) as? X509Certificate ?: return@runCatching
+                val time = cert.notAfter.time
+                if (earliest == null || time < earliest!!) earliest = time
+            }
+        }
+        return earliest
+    }
+
+    /** True when the keybox host answers over HTTPS. */
+    fun networkReachable(): Boolean {
+        val env = env()
+        val lines = collectLines(
+            "$env; curl -sS -m 10 -o /dev/null " +
+                "-w 'http=%{http_code}' " +
+                "https://dcdn.xiaocaiye.cn/keybox/keybox_md5.txt 2>&1; echo",
+        )
+        val joined = lines.joinToString("\n")
+        Log.i(TAG, "network check -> $joined")
+        return joined.contains("http=200")
+    }
 
     /**
      * Copies the asset tree into the app's private files dir. The shell cannot
