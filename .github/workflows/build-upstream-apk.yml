@@ -42,12 +42,24 @@ jobs:
           grep -E "^e: " gradle.log | head -25 | cut -c1-260 | sed 's/^/::error::/' || true
           awk "/What went wrong:/{f=1} f" gradle.log | head -20 | cut -c1-260 | sed 's/^/::error::/' || true
 
-      - name: Store the APK
+      - name: Re-sign with the fixed key
         run: |
           mkdir -p dist
           APK=$(find app/build/outputs/apk/debug -name "*.apk" -type f | head -1)
           echo "found: $APK"
-          cp "$APK" dist/FolkPatch-Debug.apk
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/*/ 2>/dev/null | head -1)
+          if [ -z "$BT" ]; then
+            BT=$(ls -d "$ANDROID_SDK_ROOT"/build-tools/*/ 2>/dev/null | head -1)
+          fi
+          echo "build-tools: $BT"
+          ls "$BT" | head -20
+          "${BT}zipalign" -f -p 4 "$APK" dist/aligned.apk
+          "${BT}apksigner" sign \
+            --ks app/debug.keystore \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android --key-pass pass:android \
+            --out dist/FolkPatch-Debug.apk dist/aligned.apk
+          "${BT}apksigner" verify --print-certs dist/FolkPatch-Debug.apk | head -25
           ls -la dist/
           test -s dist/FolkPatch-Debug.apk
           git config user.name "github-actions[bot]"
