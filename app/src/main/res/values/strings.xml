@@ -1551,4 +1551,7 @@ Here are some possible reasons for authentication failure—please check which o
     <string name="patch_embed_bundled_kpms">Embed the bundled KPMs</string>
     <string name="patch_embed_bundled_kpms_summary">Bake Nohello and the SELinux Magisk access filter into every patched boot image</string>
 
+
+    <string name="webui_root_unavailable">A root shell is unavailable, so this module interface cannot be opened</string>
+
 </resources>

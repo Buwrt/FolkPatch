@@ -69,6 +69,8 @@ import java.io.File
 
 @SuppressLint("SetJavaScriptEnabled")
 class WebUIActivity : AppCompatActivity() {
+    private const val TAG = "WebUIActivity"
+
     private lateinit var webViewInterface: WebViewInterface
     private var webView: WebView? = null
     private var webCanGoBack = false
@@ -291,12 +293,31 @@ class WebUIActivity : AppCompatActivity() {
             // so keep it off the main thread. The lambdas below are read later by
             // the WebView, which runs on the main thread anyway.
             val pathHandler = withContext(Dispatchers.IO) {
-                SuFilePathHandler(
+                try {
+                    SuFilePathHandler(
+                        this@WebUIActivity,
+                        webRoot,
+                        { currentInsets },
+                        { enable -> isInsetsEnabled = enable }
+                    )
+                } catch (e: Throwable) {
+                    Log.e(TAG, "Unable to build the root-backed WebUI path handler", e)
+                    null
+                }
+            }
+
+            // A module WebUI can only be served from a root shell. Without one
+            // there is nothing to show, so report it and close instead of
+            // letting the exception escape and take the app down.
+            if (pathHandler == null) {
+                Log.e(TAG, "No root shell available for the WebUI of $moduleId")
+                android.widget.Toast.makeText(
                     this@WebUIActivity,
-                    webRoot,
-                    { currentInsets },
-                    { enable -> isInsetsEnabled = enable }
-                )
+                    getString(R.string.webui_root_unavailable),
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+                finish()
+                return@withContext
             }
 
             val newWebView = WebView(this@WebUIActivity).apply {

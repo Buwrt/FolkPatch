@@ -78,56 +78,64 @@ private fun buildWithTimeout(builder: Shell.Builder, vararg commands: String): S
     return result ?: throw (error ?: IOException("Shell creation failed"))
 }
 
+/**
+ * Creates a shell that is verified to actually be root.
+ *
+ * The previous chain returned as soon as a shell could be built, so a
+ * supercall made with a SuperKey the kernel no longer accepts produced a
+ * shell that was created fine but was not root - and that was returned
+ * without ever trying the plain `su` path that still works. Each candidate
+ * is now checked, and a non-root shell is closed and skipped.
+ */
 fun createRootShell(globalMnt: Boolean = false): Shell {
     Shell.enableVerboseLogging = BuildConfig.DEBUG
-    val builder = Shell.Builder.create().setInitializers(RootShellInitializer::class.java)
 
-    if (android.os.Process.myUid() == 0 && !globalMnt) {
-        try {
-            return buildWithTimeout(builder, "sh")
-        } catch (e: Throwable) {
-            Log.e(TAG, "sh failed for root process", e)
-        }
+    val candidates: List<List<String>> = buildList {
+        if (android.os.Process.myUid() == 0 && !globalMnt) add(listOf("sh"))
+        add(listOf(SUPERCMD, APApplication.superKey, "-Z", APApplication.MAGISK_SCONTEXT))
+        add(
+            if (globalMnt) {
+                listOf(
+                    getKPatchPath(), APApplication.superKey, "su",
+                    "-Z", APApplication.MAGISK_SCONTEXT, "--mount-master"
+                )
+            } else {
+                listOf(
+                    getKPatchPath(), APApplication.superKey, "su",
+                    "-Z", APApplication.MAGISK_SCONTEXT
+                )
+            }
+        )
+        // Plain su: apd grants root to apps through this path even when the
+        // manager's own SuperKey authentication is not in effect.
+        add(if (globalMnt) listOf("su", "-mm") else listOf("su"))
     }
 
+    var lastError: Throwable? = null
+    for (command in candidates) {
+        val shell = try {
+            Shell.Builder.create()
+                .setInitializers(RootShellInitializer::class.java)
+                .let { buildWithTimeout(it, *command.toTypedArray()) }
+        } catch (e: Throwable) {
+            lastError = e
+            Log.w(TAG, "shell candidate failed: ${command.joinToString(" ")}", e)
+            continue
+        }
+        if (shell.isRoot) return shell
+        Log.w(TAG, "shell candidate is not root, skipping: ${command.joinToString(" ")}")
+        closeQuietly(shell)
+    }
+
+    // Nothing gave root. Hand back a plain shell so callers that can cope
+    // still work; callers that cannot use createRootShellStrict.
     return try {
         buildWithTimeout(
-            builder, SUPERCMD, APApplication.superKey, "-Z", APApplication.MAGISK_SCONTEXT
+            Shell.Builder.create().setInitializers(RootShellInitializer::class.java), "sh"
         )
     } catch (e: Throwable) {
-        Log.e(TAG, "su failed: ", e)
-        return try {
-            Log.e(TAG, "retry compat kpatch su")
-            if (globalMnt) {
-                buildWithTimeout(
-                    builder,
-                    getKPatchPath(), APApplication.superKey, "su", "-Z", APApplication.MAGISK_SCONTEXT, "--mount-master"
-                )
-            }else{
-                buildWithTimeout(
-                    builder,
-                    getKPatchPath(), APApplication.superKey, "su", "-Z", APApplication.MAGISK_SCONTEXT
-                )
-            }
-        } catch (e: Throwable) {
-            Log.e(TAG, "retry kpatch su failed: ", e)
-            return try {
-                Log.e(TAG, "retry su: ", e)
-                if (globalMnt) {
-                    buildWithTimeout(builder, "su","-mm")
-                }else{
-                    buildWithTimeout(builder, "su")
-                }
-            } catch (e: Throwable) {
-                Log.e(TAG, "retry su failed: ", e)
-                try {
-                    buildWithTimeout(builder, "sh")
-                } catch (e2: Throwable) {
-                    Log.e(TAG, "final sh fallback failed: ", e2)
-                    throw IOException("Unable to create any shell", e2)
-                }
-            }
-        }
+        Log.e(TAG, "final sh fallback failed", e)
+        throw IOException("Unable to create any shell", lastError ?: e)
     }
 }
 
