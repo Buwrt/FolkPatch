@@ -1546,4 +1546,9 @@ Here are some possible reasons for authentication failure—please check which o
     <string name="xiaocaiye_vol_down">Volume Down: update Tricky Store package list and APatch exclusion list</string>
     <string name="xiaocaiye_vol_up">Volume Up: update keybox</string>
 
+
+    <!-- Bundled KPMs -->
+    <string name="patch_embed_bundled_kpms">Embed the bundled KPMs</string>
+    <string name="patch_embed_bundled_kpms_summary">Bake Nohello and the SELinux Magisk access filter into every patched boot image</string>
+
 </resources>

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -26,6 +27,7 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -93,6 +95,13 @@ fun Patches(mode: PatchesViewModel.PatchMode) {
     val logScrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
     val viewModel = viewModel<PatchesViewModel>()
+    var embedBundledKpms by remember {
+        mutableStateOf(
+            APApplication.sharedPreferences.getBoolean(
+                PatchesViewModel.PREF_EMBED_BUNDLED_KPMS, true
+            )
+        )
+    }
     var needKey by remember {
         mutableStateOf(
             APApplication.sharedPreferences.getBoolean("patch_custom_superkey_enabled", false)
@@ -230,6 +239,44 @@ fun Patches(mode: PatchesViewModel.PatchMode) {
                             viewModel.newExtrasFileName.removeAt(idx)
                         })
                     })
+                }
+
+                // bundled KPMs shipped with the manager
+                if (
+                    !viewModel.patching &&
+                    !viewModel.patchdone &&
+                    mode != PatchesViewModel.PatchMode.UNPATCH &&
+                    mode != PatchesViewModel.PatchMode.RESTORE
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.patch_embed_bundled_kpms),
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Switch(
+                            checked = embedBundledKpms,
+                            onCheckedChange = { checked ->
+                                embedBundledKpms = checked
+                                APApplication.sharedPreferences.edit()
+                                    .putBoolean(
+                                        PatchesViewModel.PREF_EMBED_BUNDLED_KPMS, checked
+                                    )
+                                    .apply()
+                            },
+                        )
+                    }
+                    Text(
+                        text = stringResource(id = R.string.patch_embed_bundled_kpms_summary),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 4.dp),
+                    )
                 }
 
                 // add new KPM

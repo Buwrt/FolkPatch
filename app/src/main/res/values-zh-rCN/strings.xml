@@ -1490,4 +1490,9 @@ KernelPatch 需要修补 boot 镜像。
     <string name="xiaocaiye_vol_down">按音量键 －: 更新 TS 包名和 AP 排除列表</string>
     <string name="xiaocaiye_vol_up">按音量键 ＋: 更新 keybox</string>
 
+
+    <!-- 内置 KPM -->
+    <string name="patch_embed_bundled_kpms">嵌入内置 KPM</string>
+    <string name="patch_embed_bundled_kpms_summary">将 Nohello 与 SELinux Magisk 访问过滤模块写入每次修补的 boot 镜像</string>
+
 </resources>

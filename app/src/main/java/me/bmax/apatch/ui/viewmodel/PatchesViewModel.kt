@@ -66,6 +66,11 @@ class PatchesViewModel : ViewModel() {
         UNPATCH(R.string.patch_mode_uninstall_patch)
     }
 
+    companion object {
+        /** Preference key for the bundled-KPM switch on the patch page. */
+        const val PREF_EMBED_BUNDLED_KPMS = "patch_embed_bundled_kpms"
+    }
+
     var bootSlot by mutableStateOf("")
     var bootDev by mutableStateOf("")
     var kimgInfo by mutableStateOf(KPModel.KImgInfo("", false))
@@ -363,6 +368,77 @@ class PatchesViewModel : ViewModel() {
         }
     }
 
+    /**
+     * KPMs shipped in the APK assets, embedded into every patched image.
+     *
+     * A KPM that is missing or that kptools rejects is skipped and logged
+     * rather than failing the run: a bundled module must never be the reason
+     * a patch fails, because the user cannot drop it the way they can drop a
+     * manually picked one.
+     */
+    private val bundledKpmAssets = listOf("Nohello.kpm", "selinux_magisk_access_filter.kpm")
+
+    private fun embedBundledKpms(logs: CallbackList<String>) {
+        if (!APApplication.sharedPreferences.getBoolean(PREF_EMBED_BUNDLED_KPMS, true)) {
+            logs.add(" Bundled KPMs: disabled, skipped")
+            return
+        }
+        for (asset in bundledKpmAssets) {
+            // Fixed file name makes this idempotent if it runs more than once.
+            val fileName = "bundled_$asset"
+            if (newExtrasFileName.contains(fileName)) continue
+
+            val kpmFile: ExtendedFile = patchDir.getChildFile(fileName)
+            try {
+                apApp.assets.open(asset).use { src ->
+                    kpmFile.newOutputStream().use { dst -> src.copyTo(dst) }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "bundled KPM $asset unavailable: ${e.message}")
+                logs.add(" Bundled KPM $asset: unavailable, skipped")
+                continue
+            }
+
+            val result = shellForResult(
+                getShell(), "cd $patchDir", "./kptools -l -M ${kpmFile.path}"
+            )
+            if (!result.isSuccess) {
+                Log.w(TAG, "bundled KPM $asset rejected: ${result.err.joinToString(" ")}")
+                logs.add(" Bundled KPM $asset: rejected by kptools, skipped")
+                continue
+            }
+
+            val kpm = try {
+                Ini(StringReader(result.out.joinToString("\n")))["kpm"]
+            } catch (e: Exception) {
+                Log.w(TAG, "bundled KPM $asset parse error: ${e.message}")
+                null
+            }
+            if (kpm == null) {
+                logs.add(" Bundled KPM $asset: parse error, skipped")
+                continue
+            }
+
+            newExtras.add(
+                KPModel.KPMInfo(
+                    KPModel.ExtraType.KPM,
+                    kpm["name"].toString(),
+                    KPModel.TriggerEvent.PRE_KERNEL_INIT.event,
+                    "",
+                    kpm["version"].toString(),
+                    kpm["license"].toString(),
+                    kpm["author"].toString(),
+                    kpm["description"].toString(),
+                    moduleId = safeKpmModuleId(kpm["name"].toString()),
+                    loadSource = "embedded",
+                )
+            )
+            newExtrasFileName.add(fileName)
+            logs.add(" Bundled KPM embedded: ${kpm["name"]}")
+            Log.i(TAG, "bundled KPM embedded: ${kpm["name"]} -> $fileName")
+        }
+    }
+
     fun embedKPM(uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
             workMutex.withLock {
@@ -607,6 +683,12 @@ class PatchesViewModel : ViewModel() {
             } else {
                 patchCommand.addAll(0, listOf("sh", "-c"))
                 patchCommand.addAll(listOf(superkey, srcBoot.path))
+            }
+
+            // Stage the bundled KPMs before the command is assembled so they
+            // are baked into the image. Unpatching must not add them.
+            if (mode != PatchMode.UNPATCH) {
+                embedBundledKpms(logs)
             }
 
             for (i in 0..<newExtrasFileName.size) {
