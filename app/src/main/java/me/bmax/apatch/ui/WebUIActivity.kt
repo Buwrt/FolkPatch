@@ -287,6 +287,18 @@ class WebUIActivity : AppCompatActivity() {
 
             val webRoot = File("/data/adb/modules/${moduleId}/webroot")
 
+            // Building the handler opens a root shell and can block for a while,
+            // so keep it off the main thread. The lambdas below are read later by
+            // the WebView, which runs on the main thread anyway.
+            val pathHandler = withContext(Dispatchers.IO) {
+                SuFilePathHandler(
+                    this@WebUIActivity,
+                    webRoot,
+                    { currentInsets },
+                    { enable -> isInsetsEnabled = enable }
+                )
+            }
+
             val newWebView = WebView(this@WebUIActivity).apply {
                 setBackgroundColor(android.graphics.Color.TRANSPARENT)
 
@@ -298,12 +310,7 @@ class WebUIActivity : AppCompatActivity() {
                     .setDomain("mui.kernelsu.org")
                     .addPathHandler(
                         "/",
-                        SuFilePathHandler(
-                            this@WebUIActivity,
-                            webRoot,
-                            { currentInsets },
-                            { enable -> isInsetsEnabled = enable }
-                        ).also {
+                        pathHandler.also {
                             // A re-created WebView must not orphan the previous shell.
                             suFilePathHandler?.close()
                             suFilePathHandler = it

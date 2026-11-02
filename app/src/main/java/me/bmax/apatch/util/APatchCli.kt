@@ -196,16 +196,55 @@ internal fun createRootShellSafe(globalMnt: Boolean = false): Shell {
     }
 }
 
+/** How many times a strict root shell is attempted before giving up. */
+private const val ROOT_SHELL_ATTEMPTS = 3
+
+/** Pause between attempts. Right after boot, or while another shell is starting, the
+ * first `su` often returns a non-root shell and succeeds on the next try. */
+private const val ROOT_SHELL_RETRY_DELAY_MS = 300L
+
 internal fun createRootShellStrict(
     globalMnt: Boolean = false,
     reason: String = "unknown"
 ): Shell {
-    return try {
-        ensureRootShell(createRootShell(globalMnt), reason)
-    } catch (primaryError: Throwable) {
-        Log.e(TAG, "Strict root shell creation failed for $reason", primaryError)
-        val fallback = createRootShellSafe(globalMnt)
-        ensureRootShell(fallback, reason)
+    var lastError: Throwable? = null
+    repeat(ROOT_SHELL_ATTEMPTS) { attempt ->
+        try {
+            return ensureRootShell(createRootShell(globalMnt), reason)
+        } catch (e: Throwable) {
+            lastError = e
+            Log.w(
+                TAG,
+                "Root shell attempt ${attempt + 1}/$ROOT_SHELL_ATTEMPTS failed for $reason",
+                e
+            )
+            if (attempt < ROOT_SHELL_ATTEMPTS - 1) {
+                try {
+                    Thread.sleep(ROOT_SHELL_RETRY_DELAY_MS)
+                } catch (ie: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                }
+            }
+        }
+    }
+
+    // A global mount namespace is only needed to see other mount namespaces.
+    // Reading files out of a module directory does not require it, so drop the
+    // requirement before giving up rather than failing outright.
+    if (globalMnt) {
+        try {
+            return ensureRootShell(createRootShell(false), reason)
+        } catch (e: Throwable) {
+            Log.w(TAG, "Root shell without a global mount also failed for $reason", e)
+            lastError = e
+        }
+    }
+
+    try {
+        return ensureRootShell(createRootShellSafe(globalMnt), reason)
+    } catch (e: Throwable) {
+        Log.e(TAG, "Strict root shell creation failed for $reason", e)
+        throw IOException("Unable to obtain a root shell for $reason", lastError ?: e)
     }
 }
 
