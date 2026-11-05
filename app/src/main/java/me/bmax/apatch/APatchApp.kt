@@ -412,7 +412,13 @@ class APApplication : Application(), Thread.UncaughtExceptionHandler, ImageLoade
         me.bmax.apatch.ui.theme.FontConfig.load(this)
         me.bmax.apatch.util.ui.FloatingBarConfig.load(this)
 
-        superKey = "su"
+        // WebUIActivity and RootServices run in the :webui / :root child
+        // processes. They skip the heavy main-process init below, but their
+        // root shell is built with APApplication.superKey, so leaving the
+        // default "su" here makes every supercall fail on kernels that use a
+        // custom SuperKey. Resolve it for every process; the main process
+        // re-resolves it in setSuperKeyAndRefresh() below, which is idempotent.
+        superKey = resolveSuperKey()
         val processName = getProcessNameCompat()
         if (processName.endsWith(":root") || processName.endsWith(":webui")) {
             return
