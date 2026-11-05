@@ -1,0 +1,65 @@
+name: Deliver FolkPatch APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  reuse-existing:
+    name: Publish previously built fixed APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+      - uses: actions/download-artifact@v4
+        with:
+          name: folkpatch-debug-08bef0134d9f0c04992c4eaf8c2407b7e5ef799a
+          run-id: 41407222582
+          github-token: ${{ github.token }}
+          path: downloaded
+      - name: Publish to backup branch
+        run: |
+          set -e
+          APK=$(find downloaded -name "*.apk" -type f | head -1)
+          test -n "$APK"
+          cp "$APK" /tmp/FolkPatch-fixed-debug.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan apk-delivery-backup
+          git rm -rf . >/dev/null 2>&1 || true
+          cp /tmp/FolkPatch-fixed-debug.apk FolkPatch-fixed-debug.apk
+          git add FolkPatch-fixed-debug.apk
+          git commit -m "chore: publish fixed debug APK"
+          git push -f origin apk-delivery-backup
+
+  build-fresh:
+    name: Build APK from fixed main
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-build-env
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon
+      - name: Publish to delivery branch
+        run: |
+          set -e
+          APK=$(find app/build/outputs/apk/debug -name "*.apk" -type f | head -1)
+          test -n "$APK"
+          cp "$APK" /tmp/FolkPatch-fixed-debug.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan apk-delivery
+          git rm -rf . >/dev/null 2>&1 || true
+          cp /tmp/FolkPatch-fixed-debug.apk FolkPatch-fixed-debug.apk
+          git add FolkPatch-fixed-debug.apk
+          git commit -m "chore: publish freshly built fixed debug APK"
+          git push -f origin apk-delivery

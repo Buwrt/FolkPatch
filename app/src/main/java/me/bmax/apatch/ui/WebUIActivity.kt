@@ -1,6 +1,7 @@
 package me.bmax.apatch.ui
 
 import android.annotation.SuppressLint
+import android.util.Log
 import android.app.ActivityManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -66,10 +67,14 @@ import me.bmax.apatch.ui.webui.WebViewInterface
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
+import me.bmax.apatch.R
 
 @SuppressLint("SetJavaScriptEnabled")
 class WebUIActivity : AppCompatActivity() {
-    private const val TAG = "WebUIActivity"
+
+    companion object {
+        private const val TAG = "WebUIActivity"
+    }
 
     private lateinit var webViewInterface: WebViewInterface
     private var webView: WebView? = null

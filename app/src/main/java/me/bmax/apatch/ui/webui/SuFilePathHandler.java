@@ -117,7 +117,7 @@ public final class SuFilePathHandler implements WebViewAssetLoader.PathHandler {
                 throw new IllegalArgumentException("The given directory \"" + directory
                         + "\" doesn't exist under an allowed app internal storage directory");
             }
-            mShell = APatchCliKt.createRootShellStrict(true, "WebUI static asset loader");
+            mShell = APatchCliKt.createRootShellStrict(false, "WebUI static asset loader");
         } catch (Exception e) {
             throw new IllegalArgumentException(
                     "Failed to initialize root-backed WebUI path handler for directory: "
