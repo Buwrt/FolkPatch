@@ -17,7 +17,10 @@ jobs:
         uses: actions/checkout@v5
         with:
           submodules: recursive
-          fetch-depth: 1
+          # getVersionCode() = managerVersionEpoch + `git rev-list --count HEAD`.
+          # A shallow clone makes that count 1 and drops versionCode to 115371,
+          # which is below the official 115404 and triggers a false update prompt.
+          fetch-depth: 0
 
       - name: Checkout LyraVoid/KernelPatch main
         uses: actions/checkout@v5
@@ -100,6 +103,19 @@ jobs:
           set -e
           ./gradlew assembleDebug --no-daemon \
             -PkernelPatchArtifacts=$GITHUB_WORKSPACE/kp-artifacts
+
+      - name: Assert manager versionCode is above upstream 115404
+        run: |
+          set -e
+          BC=$(find app/build -name BuildConfig.java -path "*debug*" | head -1)
+          test -n "$BC"
+          VC=$(grep -o "VERSION_CODE = [0-9]*" "$BC" | awk "{print \$3}")
+          echo "manager versionCode = $VC (upstream latest = 115404)"
+          test "$VC" -gt 115404 || {
+            echo "ERROR: versionCode $VC <= 115404, this build would trigger a false update prompt" >&2
+            exit 1
+          }
+          echo "versionCode $VC > 115404 - OK" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Collect APK
         run: |
