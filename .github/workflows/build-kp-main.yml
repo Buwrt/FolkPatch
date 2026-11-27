@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout FolkPatch
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: recursive
           # getVersionCode() = managerVersionEpoch + `git rev-list --count HEAD`.
@@ -23,7 +23,7 @@ jobs:
           fetch-depth: 0
 
       - name: Checkout LyraVoid/KernelPatch main
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: LyraVoid/KernelPatch
           ref: main
@@ -127,7 +127,7 @@ jobs:
           sha256sum /tmp/FolkPatch-KP-main-debug.apk
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: FolkPatch-KP-main-debug
           path: /tmp/FolkPatch-KP-main-debug.apk
