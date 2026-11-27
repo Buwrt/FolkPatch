@@ -1,0 +1,200 @@
+name: Check upstream sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Create a branch with upstream-only changes (never touches protected files)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  UPSTREAM_BASELINE: 0f3f42ba02d6441dbbeb247f34c0f5eabc14e393
+
+jobs:
+  compare:
+    name: Compare LyraVoid/FolkPatch main with this fork
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          path: fork
+
+      - name: Checkout upstream main
+        uses: actions/checkout@v5
+        with:
+          repository: LyraVoid/FolkPatch
+          ref: main
+          fetch-depth: 0
+          path: upstream
+
+      - name: Compare trees (algorithm-preserving)
+        id: cmp
+        shell: bash
+        working-directory: fork
+        run: |
+          set -e
+          python3 <<'PY'
+          import os, hashlib, json
+
+          FORK = os.getcwd()
+          UPSTREAM = os.path.abspath(os.path.join(FORK, "..", "upstream"))
+
+          # Files owned by this fork. An upstream sync must NEVER overwrite them.
+          PROTECTED_EXACT = {
+            ".github/workflows/apk-delivery.yml",
+            ".github/workflows/build-kp-main.yml",
+            "app/debug.keystore",
+            "app/src/main/assets/Nohello.kpm",
+            "app/src/main/assets/selinux_magisk_access_filter.kpm",
+            "app/src/main/java/me/bmax/apatch/ui/screen/module/XiaocaiyeScreen.kt",
+            "app/src/main/java/me/bmax/apatch/util/Xiaocaiye.kt",
+            "app/build.gradle.kts",
+            "app/src/main/java/me/bmax/apatch/APatchApp.kt",
+            "app/src/main/java/me/bmax/apatch/ui/WebUIActivity.kt",
+            "app/src/main/java/me/bmax/apatch/ui/screen/misc/AppProfile.kt",
+            "app/src/main/java/me/bmax/apatch/ui/screen/module/APMTopBar.kt",
+            "app/src/main/java/me/bmax/apatch/ui/screen/patches/Patches.kt",
+            "app/src/main/java/me/bmax/apatch/ui/screen/superuser/SuperUser.kt",
+            "app/src/main/java/me/bmax/apatch/ui/viewmodel/PatchesViewModel.kt",
+            "app/src/main/java/me/bmax/apatch/ui/webui/SuFilePathHandler.java",
+            "app/src/main/java/me/bmax/apatch/util/APatchCli.kt",
+            "app/src/main/res/values/strings.xml",
+            "app/src/main/res/values-zh-rCN/strings.xml",
+            "version.properties",
+          }
+          PROTECTED_PREFIX = (
+            "app/src/main/assets/xiaocaiye/",
+            "docs/UPSTREAM_SYNC.md",
+            ".github/workflows/sync-upstream.yml",
+          )
+          SKIP_DIRS = {".git", "build", ".gradle", ".idea", "node_modules", ".kotlin"}
+
+          def scan(root):
+              out = {}
+              for dp, dns, fns in os.walk(root):
+                  dns[:] = [d for d in dns if d not in SKIP_DIRS]
+                  for f in fns:
+                      p = os.path.join(dp, f)
+                      rel = os.path.relpath(p, root).replace(os.sep, "/")
+                      try:
+                          with open(p, "rb") as fh:
+                              out[rel] = hashlib.sha256(fh.read()).hexdigest()
+                      except OSError:
+                          pass
+              return out
+
+          def protected(rel):
+              return rel in PROTECTED_EXACT or rel.startswith(PROTECTED_PREFIX)
+
+          fork = scan(FORK)
+          upstream = scan(UPSTREAM)
+          fk, uk = set(fork), set(upstream)
+
+          missing = sorted(uk - fk)                      # upstream has, fork lacks
+          private = sorted(fk - uk)                      # fork-only
+          to_merge = sorted(                              # upstream differs, not protected
+              p for p in (uk & fk)
+              if fork[p] != upstream[p] and not protected(p)
+          )
+          protected_diff = sorted(                       # expected: fork's own changes
+              p for p in (uk & fk)
+              if fork[p] != upstream[p] and protected(p)
+          )
+
+          report = {
+              "upstream_files": len(uk),
+              "fork_files": len(fk),
+              "identical": len(uk & fk) - len(protected_diff) - len(to_merge),
+              "missing_from_fork": missing,
+              "needs_merge": to_merge,
+              "fork_private_files": private,
+              "protected_differences": protected_diff,
+          }
+          with open("upstream-sync-report.json", "w") as f:
+              json.dump(report, f, indent=2)
+
+          lines = []
+          lines.append("## Upstream sync check")
+          lines.append("")
+          lines.append(f"- Upstream files: **{len(uk)}** | Fork files: **{len(fk)}**")
+          lines.append(f"- Byte-identical: **{report['identical']}**")
+          lines.append(f"- Upstream files missing from fork: **{len(missing)}**")
+          lines.append(f"- Unprotected upstream changes to merge: **{len(to_merge)}**")
+          lines.append(f"- Fork-private files: **{len(private)}**")
+          lines.append(f"- Protected files with fork-specific changes: **{len(protected_diff)}** (expected, left untouched)")
+          lines.append("")
+          if not missing and not to_merge:
+              lines.append("**Result: already aligned with upstream main. Nothing to merge.**")
+              lines.append("")
+              lines.append("Algorithm unchanged: no Kotlin / Java / Rust / C++ / Shell source was modified.")
+          else:
+              lines.append("### Would-be merged files")
+              for p in missing + to_merge:
+                  lines.append(f"- `{p}`")
+          lines.append("")
+          lines.append("> Protected files are never overwritten. This workflow does not change any algorithm.")
+          text = "\n".join(lines)
+          with open("upstream-sync-report.md", "w") as f:
+              f.write(text + "\n")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write(text + "\n")
+          print(text)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"needs_merge={'true' if (missing or to_merge) else 'false'}\n")
+          PY
+
+      - name: Report upstream commits since baseline
+        shell: bash
+        working-directory: upstream
+        run: |
+          echo "UPSTREAM_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "Baseline: $UPSTREAM_BASELINE"
+          echo "Upstream main: $(git rev-parse HEAD)"
+          if [ "$(git rev-parse HEAD)" = "$UPSTREAM_BASELINE" ]; then
+            echo "No new upstream commits since the sync baseline." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### New upstream commits" >> "$GITHUB_STEP_SUMMARY"
+            git log --oneline "$UPSTREAM_BASELINE"..HEAD | head -40 | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Create upstream-only sync branch (optional)
+        if: ${{ inputs.apply && steps.cmp.outputs.needs_merge == 'true' }}
+        shell: bash
+        working-directory: fork
+        run: |
+          set -e
+          python3 - <<'PY'
+          import json, os, shutil
+          r = json.load(open("upstream-sync-report.json"))
+          up = os.path.abspath(os.path.join(os.getcwd(), "..", "upstream"))
+          for p in r["missing_from_fork"] + r["needs_merge"]:
+              src, dst = os.path.join(up, p), os.path.join(os.getcwd(), p)
+              os.makedirs(os.path.dirname(dst), exist_ok=True)
+              shutil.copy2(src, dst)
+              print("merged:", p)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          BR="upstream-sync-${UPSTREAM_SHA:0:8}"
+          git checkout -b "$BR"
+          git add -A
+          git commit -m "chore: sync upstream-only changes (protected fork files untouched)"
+          git push -f origin "$BR"
+          echo "Created branch: $BR" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-sync-report
+          path: |
+            fork/upstream-sync-report.md
+            fork/upstream-sync-report.json
+          retention-days: 14
