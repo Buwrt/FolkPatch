@@ -1,0 +1,130 @@
+name: Build APK with KernelPatch main
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  build:
+    name: Build kpimg + kptools from KernelPatch main, then assemble APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout FolkPatch
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Checkout LyraVoid/KernelPatch main
+        uses: actions/checkout@v5
+        with:
+          repository: LyraVoid/KernelPatch
+          ref: main
+          submodules: recursive
+          fetch-depth: 1
+          path: kp-src
+
+      - name: Install ARM cross compiler
+        run: |
+          set -e
+          curl -fsSL -o /tmp/arm-toolchain.tar.xz \
+            https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu/12.2.rel1/binrel/arm-gnu-toolchain-12.2.rel1-x86_64-aarch64-none-elf.tar.xz
+          tar -Jxf /tmp/arm-toolchain.tar.xz -C /tmp
+
+      - name: Build kpimg-android from KernelPatch main
+        run: |
+          set -e
+          export TARGET_COMPILE=/tmp/arm-gnu-toolchain-12.2.rel1-x86_64-aarch64-none-elf/bin/aarch64-none-elf-
+          cd kp-src/kernel
+          export ANDROID=1
+          make hdr kpimg
+          mv kpimg kpimg-android
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r26b
+          add-to-path: true
+
+      - name: Build kptools-android from KernelPatch main
+        run: |
+          set -e
+          cd kp-src/kernel
+          export TARGET_COMPILE=placeholder
+          make hdr
+          cd ../../tools
+          mkdir -p build/android && cd build/android
+          cmake \
+            -DCMAKE_TOOLCHAIN_FILE=${{ steps.setup-ndk.outputs.ndk-path }}/build/cmake/android.toolchain.cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DANDROID_PLATFORM=android-33 \
+            -DANDROID_ABI=arm64-v8a ../..
+          cmake --build .
+          mv kptools kptools-android
+
+      - name: Stage local KernelPatch artifacts
+        run: |
+          set -e
+          mkdir -p kp-artifacts
+          cp kp-src/kernel/kpimg-android kp-artifacts/kpimg-android
+          cp kp-src/tools/build/android/kptools-android kp-artifacts/kptools-android
+          ls -l kp-artifacts
+          sha256sum kp-artifacts/*
+          echo "KP_SRC_SHA=$(git -C kp-src rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "KP_SRC_SHORT=$(git -C kp-src rev-parse --short HEAD)" >> "$GITHUB_ENV"
+
+      - name: Verify the new kpimg is not the old 0.13.9 binary
+        run: |
+          set -e
+          curl -fsSL -o /tmp/kpimg-0.13.9 \
+            https://github.com/LyraVoid/KernelPatch/releases/download/0.13.9/kpimg-android
+          echo "0.13.9 kpimg : $(sha256sum /tmp/kpimg-0.13.9 | cut -d' ' -f1)  $(stat -c%s /tmp/kpimg-0.13.9) bytes"
+          echo "main    kpimg : $(sha256sum kp-artifacts/kpimg-android | cut -d' ' -f1)  $(stat -c%s kp-artifacts/kpimg-android) bytes"
+          if cmp -s /tmp/kpimg-0.13.9 kp-artifacts/kpimg-android; then
+            echo "ERROR: kpimg unchanged, aborting" >&2
+            exit 1
+          fi
+          echo "KernelPatch source: $KP_SRC_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "kpimg differs from 0.13.9 - OK" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Setup build environment
+        uses: ./.github/actions/setup-build-env
+
+      - name: Build debug APK with the new KernelPatch binaries
+        run: |
+          set -e
+          ./gradlew assembleDebug --no-daemon \
+            -PkernelPatchArtifacts=$GITHUB_WORKSPACE/kp-artifacts
+
+      - name: Collect APK
+        run: |
+          set -e
+          APK=$(find app/build/outputs/apk/debug -name "*.apk" -type f | head -1)
+          test -n "$APK"
+          cp "$APK" /tmp/FolkPatch-KP-main-debug.apk
+          ls -lh /tmp/FolkPatch-KP-main-debug.apk
+          sha256sum /tmp/FolkPatch-KP-main-debug.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FolkPatch-KP-main-debug
+          path: /tmp/FolkPatch-KP-main-debug.apk
+          retention-days: 14
+
+      - name: Publish APK to delivery branch
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan apk-delivery-kp-main
+          git rm -rf . >/dev/null 2>&1 || true
+          cp /tmp/FolkPatch-KP-main-debug.apk FolkPatch-KP-main-debug.apk
+          git add FolkPatch-KP-main-debug.apk
+          git commit -m "chore: APK with KernelPatch main ($KP_SRC_SHORT)"
+          git push -f origin apk-delivery-kp-main
