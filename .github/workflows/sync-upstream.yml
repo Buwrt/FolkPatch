@@ -22,13 +22,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout this repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           path: fork
 
       - name: Checkout upstream main
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: LyraVoid/FolkPatch
           ref: main
@@ -191,7 +191,7 @@ jobs:
           echo "Created branch: $BR" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: upstream-sync-report
           path: |
