@@ -57,7 +57,7 @@ jobs:
           cd kp-src/kernel
           export TARGET_COMPILE=placeholder
           make hdr
-          cd ../../tools
+          cd ../tools
           mkdir -p build/android && cd build/android
           cmake \
             -DCMAKE_TOOLCHAIN_FILE=${{ steps.setup-ndk.outputs.ndk-path }}/build/cmake/android.toolchain.cmake \
